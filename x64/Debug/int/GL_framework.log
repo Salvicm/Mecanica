@@ -1,14 +1,4 @@
-﻿  imgui.cpp
-  imgui_demo.cpp
-  imgui_draw.cpp
-  imgui_impl_sdl_gl3.cpp
-  main.cpp
-  Exemple.cpp
-  physics.cpp
-  render.cpp
-  render_prims.cpp
-  Generating Code...
-     Creating library C:\Users\TheAalegre\Source\Repos\Salvicm\Mecanica\x64\Debug\GL_framework.lib and object C:\Users\TheAalegre\Source\Repos\Salvicm\Mecanica\x64\Debug\GL_framework.exp
-  GL_framework.vcxproj -> C:\Users\TheAalegre\Source\Repos\Salvicm\Mecanica\x64\Debug\GL_framework.exe
+﻿     Creating library C:\Users\salvio.calvillo\Documents\alos95-glframework_phys-0d4db1579af8\Mecanica\x64\Debug\GL_framework.lib and object C:\Users\salvio.calvillo\Documents\alos95-glframework_phys-0d4db1579af8\Mecanica\x64\Debug\GL_framework.exp
+  GL_framework.vcxproj -> C:\Users\salvio.calvillo\Documents\alos95-glframework_phys-0d4db1579af8\Mecanica\x64\Debug\GL_framework.exe
   0 archivo(s) copiado(s)
   0 archivo(s) copiado(s)
