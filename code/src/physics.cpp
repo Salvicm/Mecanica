@@ -8,13 +8,30 @@
 
 namespace LilSpheres {
 	extern void updateParticles(int startIdx, int count, float* array_data);
+	extern int particleCount;
+
 }
-
+glm::vec3 eulerSolver(glm::vec3 origin, glm::vec3 end, float _dt) {
+	return origin + _dt * end;
+}
+glm::vec3 eulerFixer(glm::vec3 origin, glm::vec3 end, glm::vec4 planeInfo) {
+	return{ 0,0,0 };
+}
+bool checkWithPlane() {
+	return false;
+}
+bool checkWithSphere() {
+	return false;
+}
 struct Particles {
-
+	glm::vec3 acceleration = { 0, -9.81f, 0 };
 	int maxParticles = 100;
-	std::vector<float> positions;
-	int PartCount;
+	glm::vec3 *positions;
+	glm::vec3 *speeds;
+	float *lifeTime;
+	float *currentLifeTime;
+	glm::vec3 originalSpeed = { 0,1,0 };
+	float originalLifetime = 1.5f;
 	// Physics parameters
 	float min = 0.0f;
 	float max = 10.0f;
@@ -23,30 +40,56 @@ struct Particles {
 		maxParticles = n;
 	}
 	void InitParticles() {
-		positions.clear();
-		for (int i = 0; i < maxParticles * 3; i++)
+		positions = new glm::vec3[maxParticles];
+		speeds = new glm::vec3[maxParticles];
+		lifeTime = new float[maxParticles];
+		currentLifeTime = new float[maxParticles];
+		LilSpheres::particleCount = maxParticles;
+		extern bool renderParticles;
+		renderParticles = true;
+		for (int i = 0; i < maxParticles; i++)
 		{
-			positions.push_back(0.0);
+			float x = -5 + min + (float)rand() / (RAND_MAX / (max - min));
+			float z = -5 + min + (float)rand() / (RAND_MAX / (max - min));
+			speeds[i] = originalSpeed;
+			lifeTime[i] = (float(rand() % 100) +1)/ 100 + 1 ;
+			currentLifeTime[i] = 0;
+			positions[i] = { x,max,z };
 		}
 	}
 	void UpdateParticles(float dt) {
-		PartCount = positions.size();
-		for (int i = 0; i < PartCount; i += 3)
-		{
-			float x = -5 + min + (float)rand() / (RAND_MAX / (max - min));
-			float y = min + (float)rand() / (RAND_MAX / (max - min));
-			float z = -5 + min + (float)rand() / (RAND_MAX / (max - min));
-			std::cout << "Creating particle at: " << x << ".2f, " << y << ".2f, " << z << ".2f\n";
-			positions[i] = x;
-			positions[i + 1] = y;
-			positions[i + 2] = z;
-		}
 
-		LilSpheres::updateParticles(0, PartCount, &positions[0]);
+		for (int i = 0; i < maxParticles; i++)
+		{
+			positions[i] = eulerSolver(positions[i], speeds[i], dt);
+			speeds[i] = eulerSolver(speeds[i], acceleration, dt);
+			currentLifeTime[i] += dt;
+			if (currentLifeTime[i] >= lifeTime[i]) {
+				float x = -5 + min + (float)rand() / (RAND_MAX / (max - min));
+				float z = -5 + min + (float)rand() / (RAND_MAX / (max - min));
+				speeds[i] = originalSpeed;
+				currentLifeTime[i] = 0;
+				positions[i] = { x,max,z };
+				lifeTime[i] = (float(rand() % 100) + 1) / 100 + 1;
+
+			}
+			if (checkWithPlane()) {
+				std::cout << "Particle nº: [" << i << "] Collided with a plane" << std::endl;
+			}
+			if (checkWithSphere()) {
+				std::cout << "Particle nº: [" << i << "] Collided with a sphere" << std::endl;
+			}
+		}
+		// Check collision
+		LilSpheres::updateParticles(0, maxParticles, &positions[0].x);
 
 	}
 	void CleanParticles() {
-		positions.clear();
+		delete[] positions;
+		delete[] speeds;
+		delete[] lifeTime;
+		delete[] currentLifeTime;
+
 	}
 } parts;
 extern void Exemple_GUI();
@@ -58,11 +101,11 @@ void GUI() {
 	bool show = true;
 	ImGui::Begin("Physics Parameters", &show, 0);
 
-	{	
+	{
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);//FrameRate
 		Exemple_GUI();
 	}
-	
+
 	ImGui::End();
 }
 
@@ -77,16 +120,4 @@ void PhysicsUpdate(float dt) {
 void PhysicsCleanup() {
 	parts.CleanParticles();
 }
-
-void particleContainer(){/*
-
-	s_PS.numParticles = 100;
-	s_PS.position = new glm::vec3[s_PS.numParticles];
-
-	extern bool renderParticles; renderParticles = true
-	LilSpheres::firstParticleIdx = 0;
-	LilSpheres::particleCount = s_PS.numParticles;*/
-
-}
-
 
