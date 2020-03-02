@@ -2,6 +2,8 @@
 #include <imgui\imgui_impl_sdl_gl3.h>
 #include <imgui\imgui_impl_sdl_gl3.h>
 #include <glm\glm.hpp>
+#include <glm\gtc\type_ptr.hpp>
+#include <GL\glew.h>
 #include <glm\gtc\matrix_transform.hpp>
 #include <vector>
 #include <iostream>
@@ -10,6 +12,15 @@ namespace LilSpheres {
 	extern void updateParticles(int startIdx, int count, float* array_data);
 	extern int particleCount;
 
+}
+namespace Box {
+	extern GLuint cubeVao;
+	extern GLuint cubeVbo[];
+	extern GLuint cubeShaders[];
+	extern GLuint cubeProgram;
+
+	extern float cubeVerts[];
+	extern GLubyte cubeIdx[];
 }
 glm::vec3 eulerSolver(glm::vec3 origin, glm::vec3 end, float _dt) {
 	return origin + _dt * end;
@@ -92,10 +103,8 @@ struct Particles {
 
 	}
 } parts;
-extern void Exemple_GUI();
-extern void Exemple_PhysicsInit();
-extern void Exemple_PhysicsUpdate(float dt);
-extern void Exemple_PhysicsCleanup();
+
+
 bool show_test_window = false;
 void GUI() {
 	bool show = true;
@@ -103,7 +112,6 @@ void GUI() {
 
 	{
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);//FrameRate
-		Exemple_GUI();
 	}
 
 	ImGui::End();
@@ -120,4 +128,10 @@ void PhysicsUpdate(float dt) {
 void PhysicsCleanup() {
 	parts.CleanParticles();
 }
+glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d) {
+	float A, B, C, D;
+	return { A, B, C, D };
+}
+void checkCollisions() {
 
+}
