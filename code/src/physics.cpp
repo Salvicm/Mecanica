@@ -7,6 +7,9 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <iostream>
 
+float elasticity = 0.75f;
+enum class Mode{FOUNTAIN, CASCADE};
+enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
 //Function declarations
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
 
@@ -36,12 +39,32 @@ bool checkWithPlane(glm::vec3 originalPos, glm::vec3 endPos, glm::vec4 plano) {
 	float y = (endPos.x * plano.x) + (endPos.y *plano.y) + (endPos.z * plano.z) + plano.w;
 	return x * y < 0;
 }
+glm::vec3 fixPos(glm::vec3 originalPos, glm::vec3 endPos, glm::vec4 plano) {
+	glm::vec3 newPos = { 0,0,0 };
+	glm::vec3 normalPlano = { plano.x, plano.y, plano.z };
+	newPos = (endPos - (2 * (glm::dot(endPos, normalPlano) + plano.w)) * normalPlano);
+	return newPos;
+
+}
+glm::vec3 fixSpeed(glm::vec3 originalSpeed, glm::vec3 endSpeed, glm::vec4 plano) { 
+	glm::vec3 newSpeed = { 0,0,0 };
+	glm::vec3 normalPlano = { plano.x, plano.y, plano.z };
+	newSpeed = (endSpeed - (2 * (glm::dot(endSpeed, normalPlano))) * normalPlano) * elasticity;
+
+	return newSpeed;
+}
+
 bool checkWithSphere() {
 	return false;
 }
 struct Particles {
+	Mode mode = Mode::FOUNTAIN;
+	CascadeAxis axis = CascadeAxis::Z_BACK;
+	float distFromAxis = 2.5f;
+	float cascadeHeight = 5.0f;
+	glm::vec3 fountainOrigin = { 4.5f, 9.0f,0.f }; // TODO Modificar el centro en la UI // X y Z deben ir entre 5 y -5, la Y entre 0 y 1
 	glm::vec3 acceleration = { 0, -9.81f, 0 };
-	int maxParticles = 1;
+	int maxParticles = 100;
 	glm::vec3 *positions;
 	glm::vec3 *primaPositions;
 	glm::vec3 *speeds;
@@ -72,81 +95,102 @@ struct Particles {
 		{
 			float x = -5 + min + (float)rand() / (RAND_MAX / (max - min));
 			float z = -5 + min + (float)rand() / (RAND_MAX / (max - min));
-			primaSpeeds[i] = speeds[i] = originalSpeed;
-			lifeTime[i] = (float(rand() % 100) +1)/ 100 + 1 ;
+			float tmpX = (float)(rand() % 500) / 100.f - 2.5f;
+			float tmpZ = (float)(rand() % 500) / 100.f - 2.5f;
+			float tmpY = 5.f;
+			primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+			lifeTime[i] = (((float)(rand() % 100) / 100.f) * 2.f) + 2;
 			currentLifeTime[i] = 0;
-			primaPositions[i] = positions[i] = { x,max,z };
+			glm::vec3 originPosition = { 0,0,0 };
+			switch (mode)
+			{
+			case Mode::FOUNTAIN:
+				primaPositions[i] = positions[i] = fountainOrigin;
+				break;
+			case Mode::CASCADE:
+				
+				switch (axis)
+				{
+				case CascadeAxis::X_LEFT:
+					originPosition = {-5.f + distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 5.f) -10 };
+					break;
+				case CascadeAxis::X_RIGHT:
+					originPosition = {+5.f - distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 5.f) -10 };
+					break;
+				case CascadeAxis::Z_FRONT:
+					originPosition = { (((float)(rand() % 100) / 100.f) * 5.f) - 10 , cascadeHeight, +5.f - distFromAxis }; 
+					break;
+				case CascadeAxis::Z_BACK:
+					originPosition = { (((float)(rand() % 100) / 100.f) * 5.f) - 10 , cascadeHeight, -5.f + distFromAxis }; 
+					break;
+				default:
+					break;
+				}
+				primaPositions[i] = positions[i] = originPosition;
+				break;
+			default:
+				break;
+			}
 		}
 	}
 	void UpdateParticles(float dt) {
-		printf("Start update\n");
+		glm::vec4 plano; 
 		for (int i = 0; i < maxParticles; i++)
 		{
+			bool collided = false;
 			primaPositions[i] = eulerSolver(positions[i], speeds[i], dt);
 			primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 			currentLifeTime[i] += dt;
 			if (currentLifeTime[i] >= lifeTime[i]) {
 				float x = -5 + min + (float)rand() / (RAND_MAX / (max - min));
 				float z = -5 + min + (float)rand() / (RAND_MAX / (max - min));
-
-				primaSpeeds[i] = speeds[i] = originalSpeed;
+				float tmpX = (float)(rand() % 500) / 100.f - 2.5f;
+				float tmpZ = (float)(rand() % 500) / 100.f - 2.5f;
+				float tmpY = 5.f;
+				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 				currentLifeTime[i] = 0;
-				primaPositions[i] = positions[i] = { x,max,z };
-				lifeTime[i] = (float(rand() % 100) + 1) / 100 + 1;
+				switch (mode)
+				{
+				case Mode::FOUNTAIN:
+					primaPositions[i] = positions[i] = fountainOrigin;
+					break;
+				case Mode::CASCADE:
+					break;
+				default:
+					break;
+				}
+				lifeTime[i] = (((float)(rand() % 100) / 100.f) * 2.f) + 2;
 
 			}
 			
+			plano = getRectFormula(
+				// Basandonos en los indices del cubo 
+				{ Box::cubeVerts[4 * 3], Box::cubeVerts[4 * 3 + 1], Box::cubeVerts[4 * 3 + 2] },
+				{ Box::cubeVerts[5 * 3], Box::cubeVerts[5 * 3 + 1], Box::cubeVerts[5 * 3 + 2] },
+				{ Box::cubeVerts[6 * 3], Box::cubeVerts[6 * 3 + 1], Box::cubeVerts[6 * 3 + 2] },
+				{ Box::cubeVerts[7 * 3], Box::cubeVerts[7 * 3 + 1], Box::cubeVerts[7 * 3 + 2] });
+			if (checkWithPlane(positions[i], primaPositions[i], plano)) {
+				collided = true;
+				primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
+				primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
+			}
+
+			for (int j = 0; j < 20; j+=4) {
+				plano = getRectFormula(
+					// Basandonos en los indices del cubo 
+					{ Box::cubeVerts[Box::cubeIdx[j] * 3], Box::cubeVerts[Box::cubeIdx[j] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j] * 3 + 2] },
+					{ Box::cubeVerts[Box::cubeIdx[j+1] * 3], Box::cubeVerts[Box::cubeIdx[j+1] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j+1] * 3 + 2] },
+					{ Box::cubeVerts[Box::cubeIdx[j+2] * 3], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 2] },
+					{ Box::cubeVerts[Box::cubeIdx[j+3] * 3], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 2] });
+				if (checkWithPlane(positions[i], primaPositions[i], plano)) {
+					collided = true;
+					primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
+					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
+				}
+			}
+			speeds[i] = primaSpeeds[i];
+			positions[i] = primaPositions[i];
 			
-			if (checkWithPlane(positions[i], primaPositions[i], getRectFormula(
-				// Basandonos en los indices del cubo 
-				{ Box::cubeVerts[Box::cubeIdx[0] * 3], Box::cubeVerts[Box::cubeIdx[0] * 3 + 1], Box::cubeVerts[Box::cubeIdx[0] * 3 + 2]},
-				{ Box::cubeVerts[Box::cubeIdx[1] * 3], Box::cubeVerts[Box::cubeIdx[1] * 3 + 1], Box::cubeVerts[Box::cubeIdx[1] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[2] * 3], Box::cubeVerts[Box::cubeIdx[2] * 3 + 1], Box::cubeVerts[Box::cubeIdx[2] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[3] * 3], Box::cubeVerts[Box::cubeIdx[3] * 3 + 1], Box::cubeVerts[Box::cubeIdx[3] * 3 + 2] }))) {
-				std::cout << "Particle nº: [" << i << "] Collided with plane A" << std::endl;
-			} else if (checkWithPlane(positions[i], primaPositions[i], getRectFormula(
-				// Basandonos en los indices del cubo 
-				{ Box::cubeVerts[Box::cubeIdx[4] * 3], Box::cubeVerts[Box::cubeIdx[4] * 3 + 1], Box::cubeVerts[Box::cubeIdx[4] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[5] * 3], Box::cubeVerts[Box::cubeIdx[5] * 3 + 1], Box::cubeVerts[Box::cubeIdx[5] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[6] * 3], Box::cubeVerts[Box::cubeIdx[6] * 3 + 1], Box::cubeVerts[Box::cubeIdx[6] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[7] * 3], Box::cubeVerts[Box::cubeIdx[7] * 3 + 1], Box::cubeVerts[Box::cubeIdx[7] * 3 + 2] }))) {
-				std::cout << "Particle nº: [" << i << "] Collided with plane B" << std::endl;
-			}else if (checkWithPlane(positions[i], primaPositions[i], getRectFormula(
-				// Basandonos en los indices del cubo 
-				{ Box::cubeVerts[Box::cubeIdx[8] * 3], Box::cubeVerts[Box::cubeIdx[8] * 3 + 1], Box::cubeVerts[Box::cubeIdx[8] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[9] * 3], Box::cubeVerts[Box::cubeIdx[9] * 3 + 1], Box::cubeVerts[Box::cubeIdx[9] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[10] * 3], Box::cubeVerts[Box::cubeIdx[10] * 3 + 1], Box::cubeVerts[Box::cubeIdx[10] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[11] * 3], Box::cubeVerts[Box::cubeIdx[11] * 3 + 1], Box::cubeVerts[Box::cubeIdx[11] * 3 + 2] }))) {
-				std::cout << "Particle nº: [" << i << "] Collided with plane C" << std::endl;
-				
-			} else if (checkWithPlane(positions[i], primaPositions[i], getRectFormula(
-				// Basandonos en los indices del cubo 
-				{ Box::cubeVerts[Box::cubeIdx[12] * 3], Box::cubeVerts[Box::cubeIdx[12] * 3 + 1], Box::cubeVerts[Box::cubeIdx[12] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[13] * 3], Box::cubeVerts[Box::cubeIdx[13] * 3 + 1], Box::cubeVerts[Box::cubeIdx[13] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[14] * 3], Box::cubeVerts[Box::cubeIdx[14] * 3 + 1], Box::cubeVerts[Box::cubeIdx[14] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[15] * 3], Box::cubeVerts[Box::cubeIdx[15] * 3 + 1], Box::cubeVerts[Box::cubeIdx[15] * 3 + 2] }))) {
-				std::cout << "Particle nº: [" << i << "] Collided with plane D" << std::endl;
-			} else if (checkWithPlane(positions[i], primaPositions[i], getRectFormula(
-				// Basandonos en los indices del cubo 
-				{ Box::cubeVerts[Box::cubeIdx[16] * 3], Box::cubeVerts[Box::cubeIdx[16] * 3 + 1], Box::cubeVerts[Box::cubeIdx[16] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[17] * 3], Box::cubeVerts[Box::cubeIdx[17] * 3 + 1], Box::cubeVerts[Box::cubeIdx[17] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[18] * 3], Box::cubeVerts[Box::cubeIdx[18] * 3 + 1], Box::cubeVerts[Box::cubeIdx[18] * 3 + 2] },
-				{ Box::cubeVerts[Box::cubeIdx[19] * 3], Box::cubeVerts[Box::cubeIdx[19] * 3 + 1], Box::cubeVerts[Box::cubeIdx[19] * 3 + 2] }))) {
-				std::cout << "Particle nº: [" << i << "] Collided with plane E" << std::endl;
-			}
-
-
-
-			/*
-			else if (checkWithSphere()) {
-				std::cout << "Particle nº: [" << i << "] Collided with a sphere" << std::endl;
-			}*/
-			else {
-				speeds[i] = primaSpeeds[i];
-				positions[i] = primaPositions[i];
-			}
-			printf("End update\n");
-
 		}
 		// Check collision
 		LilSpheres::updateParticles(0, maxParticles, &positions[0].x);
