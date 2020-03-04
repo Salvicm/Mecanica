@@ -31,14 +31,17 @@ glm::vec3 eulerFixer(glm::vec3 origin, glm::vec3 end, glm::vec4 planeInfo) {
 	return{ 0,0,0 };
 }
 bool checkWithPlane(glm::vec3 originalPos, glm::vec3 endPos, glm::vec4 plano) {
-	return false;
+	 // (n * pt + d)(n*pt+dt + d)
+	float x = (originalPos.x * plano.x) + (originalPos.y *plano.y) + (originalPos.z * plano.z) + plano.w;
+	float y = (endPos.x * plano.x) + (endPos.y *plano.y) + (endPos.z * plano.z) + plano.w;
+	return x * y < 0;
 }
 bool checkWithSphere() {
 	return false;
 }
 struct Particles {
 	glm::vec3 acceleration = { 0, -9.81f, 0 };
-	int maxParticles = 100;
+	int maxParticles = 1;
 	glm::vec3 *positions;
 	glm::vec3 *primaPositions;
 	glm::vec3 *speeds;
@@ -76,7 +79,7 @@ struct Particles {
 		}
 	}
 	void UpdateParticles(float dt) {
-
+		printf("Start update\n");
 		for (int i = 0; i < maxParticles; i++)
 		{
 			primaPositions[i] = eulerSolver(positions[i], speeds[i], dt);
@@ -100,35 +103,36 @@ struct Particles {
 				{ Box::cubeVerts[Box::cubeIdx[1] * 3], Box::cubeVerts[Box::cubeIdx[1] * 3 + 1], Box::cubeVerts[Box::cubeIdx[1] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[2] * 3], Box::cubeVerts[Box::cubeIdx[2] * 3 + 1], Box::cubeVerts[Box::cubeIdx[2] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[3] * 3], Box::cubeVerts[Box::cubeIdx[3] * 3 + 1], Box::cubeVerts[Box::cubeIdx[3] * 3 + 2] }))) {
-				std::cout << "Particle nº: [" << i << "] Collided with a plane" << std::endl;
+				std::cout << "Particle nº: [" << i << "] Collided with plane A" << std::endl;
 			} else if (checkWithPlane(positions[i], primaPositions[i], getRectFormula(
 				// Basandonos en los indices del cubo 
 				{ Box::cubeVerts[Box::cubeIdx[4] * 3], Box::cubeVerts[Box::cubeIdx[4] * 3 + 1], Box::cubeVerts[Box::cubeIdx[4] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[5] * 3], Box::cubeVerts[Box::cubeIdx[5] * 3 + 1], Box::cubeVerts[Box::cubeIdx[5] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[6] * 3], Box::cubeVerts[Box::cubeIdx[6] * 3 + 1], Box::cubeVerts[Box::cubeIdx[6] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[7] * 3], Box::cubeVerts[Box::cubeIdx[7] * 3 + 1], Box::cubeVerts[Box::cubeIdx[7] * 3 + 2] }))) {
-				std::cout << "Particle nº: [" << i << "] Collided with a plane" << std::endl;
+				std::cout << "Particle nº: [" << i << "] Collided with plane B" << std::endl;
 			}else if (checkWithPlane(positions[i], primaPositions[i], getRectFormula(
 				// Basandonos en los indices del cubo 
 				{ Box::cubeVerts[Box::cubeIdx[8] * 3], Box::cubeVerts[Box::cubeIdx[8] * 3 + 1], Box::cubeVerts[Box::cubeIdx[8] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[9] * 3], Box::cubeVerts[Box::cubeIdx[9] * 3 + 1], Box::cubeVerts[Box::cubeIdx[9] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[10] * 3], Box::cubeVerts[Box::cubeIdx[10] * 3 + 1], Box::cubeVerts[Box::cubeIdx[10] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[11] * 3], Box::cubeVerts[Box::cubeIdx[11] * 3 + 1], Box::cubeVerts[Box::cubeIdx[11] * 3 + 2] }))) {
-				std::cout << "Particle nº: [" << i << "] Collided with a plane" << std::endl;
+				std::cout << "Particle nº: [" << i << "] Collided with plane C" << std::endl;
+				
 			} else if (checkWithPlane(positions[i], primaPositions[i], getRectFormula(
 				// Basandonos en los indices del cubo 
 				{ Box::cubeVerts[Box::cubeIdx[12] * 3], Box::cubeVerts[Box::cubeIdx[12] * 3 + 1], Box::cubeVerts[Box::cubeIdx[12] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[13] * 3], Box::cubeVerts[Box::cubeIdx[13] * 3 + 1], Box::cubeVerts[Box::cubeIdx[13] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[14] * 3], Box::cubeVerts[Box::cubeIdx[14] * 3 + 1], Box::cubeVerts[Box::cubeIdx[14] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[15] * 3], Box::cubeVerts[Box::cubeIdx[15] * 3 + 1], Box::cubeVerts[Box::cubeIdx[15] * 3 + 2] }))) {
-				std::cout << "Particle nº: [" << i << "] Collided with a plane" << std::endl;
+				std::cout << "Particle nº: [" << i << "] Collided with plane D" << std::endl;
 			} else if (checkWithPlane(positions[i], primaPositions[i], getRectFormula(
 				// Basandonos en los indices del cubo 
 				{ Box::cubeVerts[Box::cubeIdx[16] * 3], Box::cubeVerts[Box::cubeIdx[16] * 3 + 1], Box::cubeVerts[Box::cubeIdx[16] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[17] * 3], Box::cubeVerts[Box::cubeIdx[17] * 3 + 1], Box::cubeVerts[Box::cubeIdx[17] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[18] * 3], Box::cubeVerts[Box::cubeIdx[18] * 3 + 1], Box::cubeVerts[Box::cubeIdx[18] * 3 + 2] },
 				{ Box::cubeVerts[Box::cubeIdx[19] * 3], Box::cubeVerts[Box::cubeIdx[19] * 3 + 1], Box::cubeVerts[Box::cubeIdx[19] * 3 + 2] }))) {
-				std::cout << "Particle nº: [" << i << "] Collided with a plane" << std::endl;
+				std::cout << "Particle nº: [" << i << "] Collided with plane E" << std::endl;
 			}
 
 
@@ -141,6 +145,8 @@ struct Particles {
 				speeds[i] = primaSpeeds[i];
 				positions[i] = primaPositions[i];
 			}
+			printf("End update\n");
+
 		}
 		// Check collision
 		LilSpheres::updateParticles(0, maxParticles, &positions[0].x);
