@@ -7,7 +7,7 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <iostream>
 
-float elasticity = 0.75f;
+float elasticity = 0.75f; // UI --> 0.5 - 1
 enum class Mode{FOUNTAIN, CASCADE};
 enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
 //Function declarations
@@ -58,24 +58,25 @@ bool checkWithSphere() {
 	return false;
 }
 struct Particles {
-	Mode mode = Mode::FOUNTAIN;
-	CascadeAxis axis = CascadeAxis::Z_BACK;
-	float distFromAxis = 2.5f;
-	float cascadeHeight = 5.0f;
-	glm::vec3 fountainOrigin = { 4.5f, 9.0f,0.f }; // TODO Modificar el centro en la UI // X y Z deben ir entre 5 y -5, la Y entre 0 y 1
-	glm::vec3 acceleration = { 0, -9.81f, 0 };
-	int maxParticles = 100;
+	Mode mode = Mode::FOUNTAIN; // UI  --> El selector entre fuente y cascada
+	CascadeAxis axis = CascadeAxis::X_LEFT; // UI --> El selector entre ejes de la cascada
+	float distFromAxis = 2.0f; // UI --> 0 - 5 --> Distancia a la pared en cascada
+	float cascadeHeight = 5.0f; // UI --> 0 - 9.99 --> Altura de la cascada
+	glm::vec3 fountainOrigin = { 0.f, 5.0f,0.f }; // UI --> {(-5,5), (0,9'99), (-5,5)} --> Posicion de origen de la fuente
+	glm::vec3 acceleration = { 0, -9.81f, 0 }; // UI --> Aceleracion de todas las partículas
 	glm::vec3 *positions;
 	glm::vec3 *primaPositions;
 	glm::vec3 *speeds;
 	glm::vec3 *primaSpeeds;
 	float *lifeTime;
 	float *currentLifeTime;
-	glm::vec3 originalSpeed = { 0,1,0 };
-	float originalLifetime = 1.5f;
+	glm::vec3 originalSpeed = { 0,1,0 }; // UI --> Velocidad original para la fuente
+	float originalLifetime = 0.5f; // UI --> >=0.5
 	// Physics parameters
-	float min = 0.0f;
-	float max = 10.0f;
+	// UI --> El minimo y el máximo de la cantidad de partículas
+	float min = 0.0f; 
+	float max = 1000.0f;
+	int maxParticles = 1000; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays dinámicos y llamar a InitParticles
 
 	void SetMaxParticles(int n) {
 		maxParticles = n;
@@ -93,13 +94,12 @@ struct Particles {
 		renderParticles = true;
 		for (int i = 0; i < maxParticles; i++)
 		{
-			float x = -5 + min + (float)rand() / (RAND_MAX / (max - min));
-			float z = -5 + min + (float)rand() / (RAND_MAX / (max - min));
+			
 			float tmpX = (float)(rand() % 500) / 100.f - 2.5f;
 			float tmpZ = (float)(rand() % 500) / 100.f - 2.5f;
 			float tmpY = 5.f;
 			primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-			lifeTime[i] = (((float)(rand() % 100) / 100.f) * 2.f) + 2;
+			lifeTime[i] = originalLifetime;
 			currentLifeTime[i] = 0;
 			glm::vec3 originPosition = { 0,0,0 };
 			switch (mode)
@@ -112,16 +112,32 @@ struct Particles {
 				switch (axis)
 				{
 				case CascadeAxis::X_LEFT:
-					originPosition = {-5.f + distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 5.f) -10 };
+					originPosition = {-5.f + distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) -5 }; 
+					tmpX = (float)(rand() % 250) / 100.f + 2.5f;
+					tmpZ = 0.0f;
+					tmpY = 1.f;
+					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::X_RIGHT:
-					originPosition = {+5.f - distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 5.f) -10 };
+					originPosition = {+5.f - distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) -5 };
+					tmpX = (float)(rand() % 250) / 100.f - 5.f;
+					tmpZ = 0.0f;
+					tmpY = 1.f;
+					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::Z_FRONT:
-					originPosition = { (((float)(rand() % 100) / 100.f) * 5.f) - 10 , cascadeHeight, +5.f - distFromAxis }; 
+					originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis }; 
+					tmpX = 0.0f;
+					tmpZ = (float)(rand() % 250) / 100.f - 5.f;
+					tmpY = 1.f;
+					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::Z_BACK:
-					originPosition = { (((float)(rand() % 100) / 100.f) * 5.f) - 10 , cascadeHeight, -5.f + distFromAxis }; 
+					originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis }; 
+					tmpZ = (float)(rand() % 250) / 100.f + 2.5f;
+					tmpX = 0.0f;
+					tmpY = 1.f;
+					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				default:
 					break;
@@ -149,12 +165,50 @@ struct Particles {
 				float tmpY = 5.f;
 				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 				currentLifeTime[i] = 0;
+				glm::vec3 originPosition;
 				switch (mode)
 				{
 				case Mode::FOUNTAIN:
 					primaPositions[i] = positions[i] = fountainOrigin;
 					break;
 				case Mode::CASCADE:
+
+					switch (axis)
+					{
+					case CascadeAxis::X_LEFT:
+						originPosition = { -5.f + distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) - 5 };
+						tmpX = (float)(rand() % 250) / 100.f + 2.5f;
+						tmpZ = 0.0f;
+						tmpY = 1.f;
+						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+						break;
+					case CascadeAxis::X_RIGHT:
+						originPosition = { +5.f - distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) - 5 };
+						tmpX = (float)(rand() % 250) / 100.f - 5.f;
+						tmpZ = 0.0f;
+						tmpY = 1.f;
+						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+						break;
+					case CascadeAxis::Z_FRONT:
+						originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
+						tmpX = 0.0f;
+						tmpZ = (float)(rand() % 250) / 100.f - 5.f;
+						tmpY = 1.f;
+						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+						break;
+					case CascadeAxis::Z_BACK:
+						originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
+						tmpZ = (float)(rand() % 250) / 100.f + 2.5f;
+						tmpX = 0.0f;
+						tmpY = 1.f;
+						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+						break;
+					default:
+						break;
+					}
+					primaPositions[i] = positions[i] = originPosition;
+					
+				
 					break;
 				default:
 					break;
