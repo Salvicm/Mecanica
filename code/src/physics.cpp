@@ -15,7 +15,12 @@ enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
 //Function declarations
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
 
+namespace Sphere {
+	extern void setupSphere(glm::vec3 pos, float radius);
+	extern void cleanupSphere();
+	extern void updateSphere(glm::vec3 pos, float radius);
 
+}
 namespace LilSpheres {
 	extern void updateParticles(int startIdx, int count, float* array_data);
 	extern int particleCount;
@@ -45,7 +50,7 @@ bool checkWithPlane(glm::vec3 originalPos, glm::vec3 endPos, glm::vec4 plano) {
 glm::vec3 fixPos(glm::vec3 originalPos, glm::vec3 endPos, glm::vec4 plano) {
 	glm::vec3 newPos = { 0,0,0 };
 	glm::vec3 normalPlano = { plano.x, plano.y, plano.z };
-	newPos = (endPos - (2 * (glm::dot(endPos, normalPlano) + plano.w)) * normalPlano);
+	newPos = (endPos - (2 * (glm::dot(endPos, normalPlano) + plano.w)) * normalPlano); // Podríamos usar glm::reflect
 	return newPos;
 
 }
@@ -57,20 +62,20 @@ glm::vec3 fixSpeed(glm::vec3 originalSpeed, glm::vec3 endSpeed, glm::vec4 plano)
 	return newSpeed;
 }
 
-struct Sphere {
+struct Spheres {
 	float radius;
 	glm::vec3 position;
-	Sphere() : radius(2.0f), position({ 0,0,0 }) {}
-	Sphere(float rad, glm::vec3 pos) : radius(rad), position(pos){}
+	Spheres() : radius(2.0f), position({ 0,0,0 }) {}
+	Spheres(float rad, glm::vec3 pos) : radius(rad), position(pos){}
 };
-bool CheckCollisionWithSphere(Sphere sphere, glm::vec3 primaPos);
-glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Sphere sphere);
+bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos);
+glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere);
 struct Particles {
-	std::vector<Sphere> spheres;
+	std::vector<Spheres> spheres;
 
 #pragma region BasicParticlesData
-	Mode mode = Mode::FOUNTAIN; // UI  --> El selector entre fuente y cascada
-	CascadeAxis axis = CascadeAxis::X_LEFT; // UI --> El selector entre ejes de la cascada
+	Mode mode = Mode::CASCADE; // UI  --> El selector entre fuente y cascada
+	CascadeAxis axis = CascadeAxis::X_RIGHT; // UI --> El selector entre ejes de la cascada
 	float distFromAxis = 2.0f; // UI --> 0 - 5 --> Distancia a la pared en cascada
 	float cascadeHeight = 5.0f; // UI --> 0 - 9.99 --> Altura de la cascada
 	glm::vec3 fountainOrigin = { 0.f, 5.0f,0.f }; // UI --> {(-5,5), (0,9'99), (-5,5)} --> Posicion de origen de la fuente
@@ -98,8 +103,11 @@ struct Particles {
 #pragma region ParticleUpdates
 	void InitParticles() {
 #pragma region sphereInit
-		spheres.push_back(Sphere{ 2.0f, {0.f,5.0f,0.0f} });
-		spheres.push_back(Sphere{ 3.0f, {2.5f,2.5f,0.0f} });
+		extern bool renderSphere;
+		renderSphere = true;
+		spheres.push_back(Spheres{ 2.5f, {0, 2.5f, -0} }); // UI --> Estos 4 valores deben ser parametrizables
+		Sphere::setupSphere(spheres[0].position, spheres[0].radius);
+		
 #pragma endregion
 
 	
@@ -219,6 +227,8 @@ struct Particles {
 				{
 					if (CheckCollisionWithSphere(*it, primaPositions[i])) {
 						plano = getPlaneFromSphere(positions[i], primaPositions[i], *it);
+						primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
+						primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
 					}
 				}
 				speeds[i] = primaSpeeds[i];
@@ -283,11 +293,14 @@ struct Particles {
 					}
 				}
 			}
-			// Check collision
+		
 			LilSpheres::updateParticles(0, maxVisible, &positions[0].x);
+
+			
 		}
 	}
 	void CleanParticles() {
+		Sphere::cleanupSphere();
 		delete[] positions;
 		delete[] speeds;
 		delete[] lifeTime;
@@ -348,11 +361,11 @@ glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d)
 	return{ Normal.x,Normal.y, Normal.z,D }; // Esto me retorna la fórmula general del plano, ya normalizado
 	
 }
-bool CheckCollisionWithSphere(Sphere sphere, glm::vec3 primaPos) {
+bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos) {
 	return glm::distance(sphere.position, primaPos) <= sphere.radius;
 }
 
-glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Sphere sphere) {
+glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere) {
 
 	// Vector director
 		// f(x) = originalPos + lambda * Director;  
@@ -366,19 +379,21 @@ glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Sphere sph
 	dot(lv, lv+CP)+dot(CP,(lV+CP)) = r2;
 	l^2 = dot(v,v) 
 	l = 2*dot(v, CP)
-	- = dot(CP,CP)
+	- = dot(CP,CP) - r2
 	*/
-	glm::vec3 CP = originalPos - sphere.position;
+	glm::vec3 CP = originalPos -sphere.position;
 	float square = glm::dot(director,director);
-	float normal = 2* glm::dot(director, CP);
-	float number = glm::dot(CP,CP);
+	float normal = glm::dot(director, CP) + glm::dot(CP, director);
+	float number = glm::dot(CP,CP) - (sphere.radius*sphere.radius);
+
+	double sqrt = glm::sqrt((normal*normal) - (4 * square*number));
 
 
-
+	double lambda = glm::min((-normal + sqrt) / 2 * square, (-normal - sqrt) / 2 * square);
 	// Punto de impacto
-
+	glm::vec3 impact = originalPos + glm::vec3{ lambda * director.x, lambda * director.y, lambda * director.z}; // Si, me daba pereza sobreescribir la multiplicacion por la del double
 	// Plano tangente
-
-
-	return { 0.0f,0.0f,0.0f,0.0f };
+	glm::vec3 normalPlano = glm::normalize(impact-sphere.position);
+	float D = (normalPlano.x * impact.x * -1) + (normalPlano.y * impact.y * -1) + (normalPlano.z * impact.z * -1);
+	return { normalPlano.x, normalPlano.y, normalPlano.z, D};
 }
