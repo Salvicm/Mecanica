@@ -6,12 +6,15 @@
 #include <GL\glew.h>
 #include <glm\gtc\matrix_transform.hpp>
 #include <iostream>
+#include <vector>
 
 float elasticity = 0.75f; // UI --> 0.5 - 1
 enum class Mode{FOUNTAIN, CASCADE};
 enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
+
 //Function declarations
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
+
 
 namespace LilSpheres {
 	extern void updateParticles(int startIdx, int count, float* array_data);
@@ -54,10 +57,18 @@ glm::vec3 fixSpeed(glm::vec3 originalSpeed, glm::vec3 endSpeed, glm::vec4 plano)
 	return newSpeed;
 }
 
-bool checkWithSphere() {
-	return false;
-}
+struct Sphere {
+	float radius;
+	glm::vec3 position;
+	Sphere() : radius(2.0f), position({ 0,0,0 }) {}
+	Sphere(float rad, glm::vec3 pos) : radius(rad), position(pos){}
+};
+bool CheckCollisionWithSphere(Sphere sphere, glm::vec3 primaPos);
+glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Sphere sphere);
 struct Particles {
+	std::vector<Sphere> spheres;
+
+#pragma region BasicParticlesData
 	Mode mode = Mode::FOUNTAIN; // UI  --> El selector entre fuente y cascada
 	CascadeAxis axis = CascadeAxis::X_LEFT; // UI --> El selector entre ejes de la cascada
 	float distFromAxis = 2.0f; // UI --> 0 - 5 --> Distancia a la pared en cascada
@@ -80,11 +91,20 @@ struct Particles {
 	float maxVisible = 0;
 	float emissionRate = 100;
 	bool hasStarted = false;
-
+#pragma endregion
 	void SetMaxParticles(int n) {
 		maxParticles = n;
 	}
+#pragma region ParticleUpdates
 	void InitParticles() {
+#pragma region sphereInit
+		spheres.push_back(Sphere{ 2.0f, {0.f,5.0f,0.0f} });
+		spheres.push_back(Sphere{ 3.0f, {2.5f,2.5f,0.0f} });
+#pragma endregion
+
+	
+
+
 		positions = new glm::vec3[maxParticles];
 		speeds = new glm::vec3[maxParticles];
 		primaPositions = new glm::vec3[maxParticles];
@@ -168,7 +188,6 @@ struct Particles {
 		for (int i = 0; i < maxParticles; i++)
 		{
 			if (i < maxVisible) {
-				bool collided = false;
 				primaPositions[i] = eulerSolver(positions[i], speeds[i], dt);
 				primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 			
@@ -180,7 +199,6 @@ struct Particles {
 					{ Box::cubeVerts[6 * 3], Box::cubeVerts[6 * 3 + 1], Box::cubeVerts[6 * 3 + 2] },
 					{ Box::cubeVerts[7 * 3], Box::cubeVerts[7 * 3 + 1], Box::cubeVerts[7 * 3 + 2] });
 				if (checkWithPlane(positions[i], primaPositions[i], plano)) {
-					collided = true;
 					primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
 					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
 				}
@@ -193,9 +211,14 @@ struct Particles {
 						{ Box::cubeVerts[Box::cubeIdx[j + 2] * 3], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 2] },
 						{ Box::cubeVerts[Box::cubeIdx[j + 3] * 3], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 2] });
 					if (checkWithPlane(positions[i], primaPositions[i], plano)) {
-						collided = true;
 						primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
 						primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
+					}
+				}
+				for (auto it = spheres.begin(); it < spheres.end(); it++)
+				{
+					if (CheckCollisionWithSphere(*it, primaPositions[i])) {
+						plano = getPlaneFromSphere(positions[i], primaPositions[i], *it);
 					}
 				}
 				speeds[i] = primaSpeeds[i];
@@ -272,6 +295,7 @@ struct Particles {
 		delete[] primaPositions;
 		delete[] primaSpeeds;
 	}
+#pragma endregion
 } parts;
 
 
@@ -323,4 +347,38 @@ glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d)
 	D = (Normal.x * Punto.x * -1) + (Normal.y * Punto.y * -1) + (Normal.z * Punto.z * -1);
 	return{ Normal.x,Normal.y, Normal.z,D }; // Esto me retorna la fórmula general del plano, ya normalizado
 	
+}
+bool CheckCollisionWithSphere(Sphere sphere, glm::vec3 primaPos) {
+	return glm::distance(sphere.position, primaPos) <= sphere.radius;
+}
+
+glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Sphere sphere) {
+
+	// Vector director
+		// f(x) = originalPos + lambda * Director;  
+	glm::vec3 director = endPos - originalPos; 
+	/* 
+	|| Pcol	 - C ||^2 = r^2 --> PCol = OP + lV
+	|| OP +lV - C ||^2 = r^2
+	|| lV + (OP-C) ||^2 ...
+	|| lV + CP || ^2 = r^2
+	dot(lv+CP, lv+CP) = r^2 
+	dot(lv, lv+CP)+dot(CP,(lV+CP)) = r2;
+	l^2 = dot(v,v) 
+	l = 2*dot(v, CP)
+	- = dot(CP,CP)
+	*/
+	glm::vec3 CP = originalPos - sphere.position;
+	float square = glm::dot(director,director);
+	float normal = 2* glm::dot(director, CP);
+	float number = glm::dot(CP,CP);
+
+
+
+	// Punto de impacto
+
+	// Plano tangente
+
+
+	return { 0.0f,0.0f,0.0f,0.0f };
 }
