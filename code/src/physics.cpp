@@ -6,11 +6,14 @@
 #include <GL\glew.h>
 #include <glm\gtc\matrix_transform.hpp>
 #include <iostream>
+#include <string>
 #include <vector>
 
 float elasticity = 0.75f; // UI --> 0.5 - 1
 enum class Mode{FOUNTAIN, CASCADE};
+static const char* ModeString[]{ "Fountain", "Cascade" };
 enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
+static const char* CascadeAxisString[]{ "Z left", "X right", "Z front", "Z back" };
 
 //Function declarations
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
@@ -71,7 +74,7 @@ struct Spheres {
 bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos);
 glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere);
 struct Particles {
-	std::vector<Spheres> spheres;
+	std::vector<Spheres> spheres = std::vector<Spheres>(1, Spheres{ 2.5f, {0, 2.5f, -0} });
 
 #pragma region BasicParticlesData
 	Mode mode = Mode::CASCADE; // UI  --> El selector entre fuente y cascada
@@ -105,7 +108,6 @@ struct Particles {
 #pragma region sphereInit
 		extern bool renderSphere;
 		renderSphere = true;
-		spheres.push_back(Spheres{ 2.5f, {0, 2.5f, -0} }); // UI --> Estos 4 valores deben ser parametrizables
 		Sphere::setupSphere(spheres[0].position, spheres[0].radius);
 		
 #pragma endregion
@@ -308,11 +310,76 @@ struct Particles {
 		delete[] primaPositions;
 		delete[] primaSpeeds;
 	}
+	void ResetParticles() {
+		maxVisible = 0;
+		CleanParticles();
+		InitParticles();
+	}
 #pragma endregion
 } parts;
 
 
 bool show_test_window = false;
+
+namespace OriginalSettings {
+	Mode mode = parts.mode;
+
+	//CASCADE
+	CascadeAxis axis = parts.axis;
+	float distFromAxis = parts.distFromAxis;
+	float cascadeHeight = parts.cascadeHeight;
+
+	//FOUNTAIN
+	glm::vec3 fountainOrigin = parts.fountainOrigin;
+
+	//GENERAL
+	glm::vec3 originalSpeed = parts.originalSpeed;
+	float originalLifetime = parts.originalLifetime;
+	int maxParticles = parts.maxParticles; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays dinámicos y llamar a InitParticles
+	float emissionRate = parts.emissionRate;
+
+	//PHYSICS
+	float elasticity_ = elasticity;
+	glm::vec3 acceleration = parts.acceleration;
+
+	//OBJECTS
+	std::vector<Spheres> spheres = parts.spheres;
+	int sphereCount = parts.spheres.size();
+
+	// UI --> El minimo y el máximo de la cantidad de partículas
+	float min = parts.min;
+	float max = parts.max;
+}
+namespace EditedSettings {
+	Mode mode = parts.mode;
+
+	//CASCADE
+	CascadeAxis axis = parts.axis;
+	float distFromAxis = parts.distFromAxis;
+	float cascadeHeight = parts.cascadeHeight;
+
+	//FOUNTAIN
+	glm::vec3 fountainOrigin = parts.fountainOrigin;
+
+	//GENERAL
+	glm::vec3 originalSpeed = parts.originalSpeed;
+	float originalLifetime = parts.originalLifetime;
+	int maxParticles = parts.maxParticles; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays dinámicos y llamar a InitParticles
+	float emissionRate = parts.emissionRate;
+
+	//PHYSICS
+	float elasticity_ = elasticity;
+	glm::vec3 acceleration = parts.acceleration;
+
+	//OBJECTS
+	std::vector<Spheres> spheres = parts.spheres;
+	int sphereCount = parts.spheres.size();
+
+	// UI --> El minimo y el máximo de la cantidad de partículas
+	float min = parts.min;
+	float max = parts.max;
+}
+
 void GUI() {
 	bool show = true;
 	ImGui::Begin("Physics Parameters", &show, 0);
@@ -321,6 +388,140 @@ void GUI() {
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);//FrameRate
 	}
 
+	ImGui::NewLine();
+	std::string spawned = "Spawned particles: " + std::to_string((int)parts.maxVisible);
+	ImGui::Text(spawned.c_str());
+	ImGui::Text("Emitter options:");
+	ImGui::SliderInt("Max Particles", &EditedSettings::maxParticles,100,5000);
+	ImGui::Combo("Type", (int*)(&EditedSettings::mode), ModeString, 2);
+
+	if (EditedSettings::mode == Mode::CASCADE) {
+		ImGui::Spacing();
+		ImGui::Combo("Position", (int*)(&EditedSettings::axis), CascadeAxisString, 4);
+		ImGui::SliderFloat("Distance from axis", &EditedSettings::distFromAxis, 0, 5);
+		ImGui::SliderFloat("Height", &EditedSettings::cascadeHeight, 0, 9.999f);
+		ImGui::Spacing();
+	}
+	else {
+		ImGui::Spacing();
+		ImGui::DragFloat3("Position", &EditedSettings::fountainOrigin[0], .01f);
+		ImGui::Spacing();
+	}
+	ImGui::DragFloat3("Start Acceleration", &EditedSettings::originalSpeed[0], .01f);
+	ImGui::SliderFloat("Life", &EditedSettings::originalLifetime,.5f,10);
+	ImGui::SliderFloat("Emission Rate", &EditedSettings::emissionRate,1,500);
+
+
+	ImGui::NewLine();
+	ImGui::Text("Physics options:");
+	ImGui::SliderFloat("Elasticity", &elasticity, .5f, 1);
+	ImGui::DragFloat3("Global Acceleration", &EditedSettings::acceleration[0], .01f);
+
+	ImGui::NewLine();
+	ImGui::Text("Objects:");
+	ImGui::Text("Spheres:");
+	for (size_t i = 0; i < EditedSettings::spheres.size(); i++)
+	{
+		ImGui::SliderFloat("Radius", &EditedSettings::spheres[i].radius, 0, 10);
+		ImGui::DragFloat3("Position", &EditedSettings::spheres[i].position[0], .01f);
+	}
+	ImGui::Text("Capsules:");
+
+	ImGui::NewLine();
+
+	if (OriginalSettings::mode != parts.mode
+		|| OriginalSettings::axis != parts.axis
+		|| OriginalSettings::distFromAxis != parts.distFromAxis
+		|| OriginalSettings::cascadeHeight != parts.cascadeHeight
+		|| OriginalSettings::fountainOrigin != parts.fountainOrigin
+		|| OriginalSettings::originalSpeed != parts.originalSpeed
+		|| OriginalSettings::originalLifetime != parts.originalLifetime
+		|| OriginalSettings::elasticity_ != elasticity
+		|| OriginalSettings::acceleration != parts.acceleration
+		|| OriginalSettings::min != parts.min
+		|| OriginalSettings::max != parts.max
+		|| OriginalSettings::maxParticles != parts.maxParticles
+		|| OriginalSettings::emissionRate != parts.emissionRate
+		//|| OriginalSettings::spheres != parts.spheres
+		)
+	{
+		if (ImGui::Button("Reset Settings")) {
+			parts.mode = OriginalSettings::mode;
+			parts.axis = OriginalSettings::axis;
+			parts.distFromAxis = OriginalSettings::distFromAxis;
+			parts.cascadeHeight = OriginalSettings::cascadeHeight;
+			parts.fountainOrigin = OriginalSettings::fountainOrigin;
+			parts.originalSpeed = OriginalSettings::originalSpeed;
+			parts.originalLifetime = OriginalSettings::originalLifetime;
+			elasticity = OriginalSettings::elasticity_;
+			parts.acceleration = OriginalSettings::acceleration;
+			parts.min = OriginalSettings::min;
+			parts.max = OriginalSettings::max;
+			parts.maxParticles = OriginalSettings::maxParticles;
+			parts.emissionRate = OriginalSettings::emissionRate;
+			parts.spheres = OriginalSettings::spheres;
+
+			EditedSettings::mode = OriginalSettings::mode;
+			EditedSettings::axis = OriginalSettings::axis;
+			EditedSettings::distFromAxis = OriginalSettings::distFromAxis;
+			EditedSettings::cascadeHeight = OriginalSettings::cascadeHeight;
+			EditedSettings::fountainOrigin = OriginalSettings::fountainOrigin;
+			EditedSettings::originalSpeed = OriginalSettings::originalSpeed;
+			EditedSettings::originalLifetime = OriginalSettings::originalLifetime;
+			EditedSettings::elasticity_ = OriginalSettings::elasticity_;
+			EditedSettings::acceleration = OriginalSettings::acceleration;
+			EditedSettings::min = OriginalSettings::min;
+			EditedSettings::max = OriginalSettings::max;
+			EditedSettings::maxParticles = OriginalSettings::maxParticles;
+			EditedSettings::emissionRate = OriginalSettings::emissionRate;
+			EditedSettings::spheres = OriginalSettings::spheres;
+
+			parts.ResetParticles();
+		}
+	}
+	else {
+		ImGui::Spacing();
+		ImGui::Text(" Reset Settings");
+	}
+
+	if (EditedSettings::mode != parts.mode
+		|| EditedSettings::axis != parts.axis
+		|| EditedSettings::distFromAxis != parts.distFromAxis
+		|| EditedSettings::cascadeHeight != parts.cascadeHeight
+		|| EditedSettings::fountainOrigin != parts.fountainOrigin
+		|| EditedSettings::originalSpeed != parts.originalSpeed
+		|| EditedSettings::originalLifetime != parts.originalLifetime
+		|| EditedSettings::elasticity_ != elasticity
+		|| EditedSettings::acceleration != parts.acceleration
+		|| EditedSettings::min != parts.min
+		|| EditedSettings::max != parts.max
+		|| EditedSettings::maxParticles != parts.maxParticles
+		|| EditedSettings::emissionRate != parts.emissionRate
+		//|| EditedSettings::spheres != parts.spheres
+		)
+	{
+		if (ImGui::Button("Apply Settings")) {
+			parts.mode = EditedSettings::mode;
+			parts.axis = EditedSettings::axis;
+			parts.distFromAxis = EditedSettings::distFromAxis;
+			parts.cascadeHeight = EditedSettings::cascadeHeight;
+			parts.fountainOrigin = EditedSettings::fountainOrigin;
+			parts.originalSpeed = EditedSettings::originalSpeed;
+			parts.originalLifetime = EditedSettings::originalLifetime;
+			elasticity = EditedSettings::elasticity_;
+			parts.acceleration = EditedSettings::acceleration;
+			parts.min = EditedSettings::min;
+			parts.max = EditedSettings::max;
+			parts.maxParticles = EditedSettings::maxParticles;
+			parts.emissionRate = EditedSettings::emissionRate;
+			parts.spheres = EditedSettings::spheres;
+			parts.ResetParticles();
+		}
+	}
+	else {
+		ImGui::Spacing();
+		ImGui::Text(" Apply Settings");
+	}
 	ImGui::End();
 }
 
