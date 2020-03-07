@@ -109,7 +109,6 @@ struct Particles {
 		extern bool renderSphere;
 		renderSphere = true;
 		Sphere::setupSphere(spheres[0].position, spheres[0].radius);
-		
 #pragma endregion
 
 	
@@ -343,8 +342,8 @@ namespace OriginalSettings {
 	glm::vec3 acceleration = parts.acceleration;
 
 	//OBJECTS
-	std::vector<Spheres> spheres = parts.spheres;
-	int sphereCount = parts.spheres.size();
+	//std::vector<Spheres> spheres = parts.spheres;
+	//int sphereCount = parts.spheres.size();
 
 	// UI --> El minimo y el máximo de la cantidad de partículas
 	float min = parts.min;
@@ -372,8 +371,8 @@ namespace EditedSettings {
 	glm::vec3 acceleration = parts.acceleration;
 
 	//OBJECTS
-	std::vector<Spheres> spheres = parts.spheres;
-	int sphereCount = parts.spheres.size();
+	//std::vector<Spheres> spheres = parts.spheres;
+	//int sphereCount = parts.spheres.size();
 
 	// UI --> El minimo y el máximo de la cantidad de partículas
 	float min = parts.min;
@@ -418,16 +417,6 @@ void GUI() {
 	ImGui::DragFloat3("Global Acceleration", &EditedSettings::acceleration[0], .01f);
 
 	ImGui::NewLine();
-	ImGui::Text("Objects:");
-	ImGui::Text("Spheres:");
-	for (size_t i = 0; i < EditedSettings::spheres.size(); i++)
-	{
-		ImGui::SliderFloat("Radius", &EditedSettings::spheres[i].radius, 0, 10);
-		ImGui::DragFloat3("Position", &EditedSettings::spheres[i].position[0], .01f);
-	}
-	ImGui::Text("Capsules:");
-
-	ImGui::NewLine();
 
 	if (OriginalSettings::mode != parts.mode
 		|| OriginalSettings::axis != parts.axis
@@ -442,7 +431,6 @@ void GUI() {
 		|| OriginalSettings::max != parts.max
 		|| OriginalSettings::maxParticles != parts.maxParticles
 		|| OriginalSettings::emissionRate != parts.emissionRate
-		//|| OriginalSettings::spheres != parts.spheres
 		)
 	{
 		if (ImGui::Button("Reset Settings")) {
@@ -459,7 +447,6 @@ void GUI() {
 			parts.max = OriginalSettings::max;
 			parts.maxParticles = OriginalSettings::maxParticles;
 			parts.emissionRate = OriginalSettings::emissionRate;
-			parts.spheres = OriginalSettings::spheres;
 
 			EditedSettings::mode = OriginalSettings::mode;
 			EditedSettings::axis = OriginalSettings::axis;
@@ -474,7 +461,6 @@ void GUI() {
 			EditedSettings::max = OriginalSettings::max;
 			EditedSettings::maxParticles = OriginalSettings::maxParticles;
 			EditedSettings::emissionRate = OriginalSettings::emissionRate;
-			EditedSettings::spheres = OriginalSettings::spheres;
 
 			parts.ResetParticles();
 		}
@@ -497,7 +483,6 @@ void GUI() {
 		|| EditedSettings::max != parts.max
 		|| EditedSettings::maxParticles != parts.maxParticles
 		|| EditedSettings::emissionRate != parts.emissionRate
-		//|| EditedSettings::spheres != parts.spheres
 		)
 	{
 		if (ImGui::Button("Apply Settings")) {
@@ -514,7 +499,6 @@ void GUI() {
 			parts.max = EditedSettings::max;
 			parts.maxParticles = EditedSettings::maxParticles;
 			parts.emissionRate = EditedSettings::emissionRate;
-			parts.spheres = EditedSettings::spheres;
 			parts.ResetParticles();
 		}
 	}
@@ -522,6 +506,27 @@ void GUI() {
 		ImGui::Spacing();
 		ImGui::Text(" Apply Settings");
 	}
+
+	ImGui::NewLine();
+	ImGui::Text("Objects:");
+	ImGui::NewLine();
+	ImGui::Text("Sphere:");
+	//if (ImGui::Button("+")) {
+	//	parts.spheres.push_back(Spheres{ 2.5f, {0, 2.5f, -0} });
+	//}
+	//if (ImGui::Button("-")) {
+	//	parts.spheres.pop_back();
+	//}
+	//Sphere::cleanupSphere();
+	for (size_t i = 0; i < parts.spheres.size(); i++)
+	{
+		ImGui::Spacing();
+		ImGui::SliderFloat("Radius", &parts.spheres[i].radius, 0, 10);
+		ImGui::DragFloat3("Position", &parts.spheres[i].position[0], .01f);
+		Sphere::updateSphere(parts.spheres[i].position, parts.spheres[i].radius);
+	}
+	ImGui::NewLine();
+	ImGui::Text("Capsule:");
 	ImGui::End();
 }
 
