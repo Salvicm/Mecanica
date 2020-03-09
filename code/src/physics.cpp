@@ -9,13 +9,24 @@
 #include <string>
 #include <vector>
 #include <thread>
-#include <mutex>
+#if __has_include(<ppl.h>)
+#  include <ppl.h>
+#  define ppl 1
+#else
+#  define ppl 0
+#endif
 
-float elasticity = 0.75f; // UI --> 0.5 - 1
-bool threading = false;
+float elasticity = 0.75f;
 int maxThreads = std::thread::hardware_concurrency();
 enum class Mode{FOUNTAIN, CASCADE};
 static const char* ModeString[]{ "Fountain", "Cascade" };
+enum class ExecutionMode{STANDARD, PARALLEL, MULTITHREADING};
+ExecutionMode exMode = ExecutionMode::STANDARD;
+#if ppl == 1
+static const char* ExecutionModeString[]{ "Standard", "Parallel (EXPERIMENTAL!)", "Multithreading (EXPERIMENTAL!)" };
+#else
+static const char* ExecutionModeString[]{ "Standard", "Parallel (c++17 not aviable)", "Multithreading (EXPERIMENTAL!)" };
+#endif
 enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
 static const char* CascadeAxisString[]{ "Z left", "X right", "Z front", "Z back" };
 
@@ -201,7 +212,17 @@ struct Particles {
 		// Mantener un MaxVisible --> Esto afecta a la actualizacion tambien
 
 		hasStarted = true;
-		if (threading) {
+		switch (exMode)
+		{
+		case ExecutionMode::PARALLEL:
+#if ppl == 1
+			Concurrency::parallel_for(0, (int)maxVisible, [this, dt](int i) {
+				UpdateParticle(i, dt);
+			});
+#endif
+			break;
+		case ExecutionMode::MULTITHREADING:
+		{
 			if (maxThreads < 2) maxThreads = 2;
 			int calculateParticles = maxVisible / maxThreads;
 			int calculatedParticles = 0;
@@ -220,8 +241,10 @@ struct Particles {
 				threads[i].join();
 			}
 		}
-		else {
+			break;
+		default:
 			UpdateParticlesSection(0, maxVisible, dt);
+			break;
 		}
 		LilSpheres::updateParticles(0, maxVisible, &positions[0].x);
 	}
@@ -423,15 +446,18 @@ void GUI() {
 
 	ImGui::NewLine();
 	ImGui::Text("System options:");
-	bool lastThreading = threading;
-	ImGui::Checkbox("MultiThreading (EXPERIMENTAL!)", &threading);
-	if (threading) {
+	ImGui::Combo("Computing mode", (int*)(&exMode), ExecutionModeString, 3);
+	ExecutionMode lastExMode = exMode;
+	if (exMode == ExecutionMode::MULTITHREADING) {
 		std::string maxThreadsLabel = "Max threads ";
 		if (maxThreads == std::thread::hardware_concurrency())
 			maxThreadsLabel += "(Recommended)";
 		ImGui::SliderInt(maxThreadsLabel.c_str(), &maxThreads, 2, std::thread::hardware_concurrency() * 4);
 	}
-	if(threading != lastThreading) parts.ResetParticles();
+#if ppl == 0
+	if (exMode == ExecutionMode::PARALLEL) exMode = ExecutionMode::STANDARD;
+#endif
+	if(exMode != lastExMode) parts.ResetParticles();
 	ImGui::NewLine();
 	ImGui::Text("Particle system:");
 	std::string spawned = "Spawned particles: " + std::to_string((int)parts.maxVisible);
