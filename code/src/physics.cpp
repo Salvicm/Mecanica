@@ -8,8 +8,12 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <thread>
+#include <mutex>
 
 float elasticity = 0.75f; // UI --> 0.5 - 1
+bool threading = false;
+int maxThreads = std::thread::hardware_concurrency();
 enum class Mode{FOUNTAIN, CASCADE};
 static const char* ModeString[]{ "Fountain", "Cascade" };
 enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
@@ -38,19 +42,19 @@ namespace Box {
 	extern float cubeVerts[];
 	extern GLubyte cubeIdx[];
 }
-glm::vec3 eulerSolver(glm::vec3 origin, glm::vec3 end, float _dt) {
+glm::vec3 eulerSolver(const glm::vec3 origin, const glm::vec3 end, const float _dt) {
 	return origin + _dt * end;
 }
 glm::vec3 eulerFixer(glm::vec3 origin, glm::vec3 end, glm::vec4 planeInfo) {
 	return{ 0,0,0 };
 }
-bool checkWithPlane(glm::vec3 originalPos, glm::vec3 endPos, glm::vec4 plano) {
+bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos,const glm::vec4 plano) {
 	 // (n * pt + d)(n*pt+dt + d)
 	float x = (originalPos.x * plano.x) + (originalPos.y *plano.y) + (originalPos.z * plano.z) + plano.w;
 	float y = (endPos.x * plano.x) + (endPos.y *plano.y) + (endPos.z * plano.z) + plano.w;
 	return x * y < 0;
 }
-glm::vec3 fixPos(glm::vec3 originalPos, glm::vec3 endPos, glm::vec4 plano) {
+glm::vec3 fixPos(const glm::vec3 originalPos,const glm::vec3 endPos,const glm::vec4 plano) {
 	glm::vec3 newPos = { 0,0,0 };
 	glm::vec3 normalPlano = { plano.x, plano.y, plano.z };
 	newPos = (endPos - (2 * (glm::dot(endPos, normalPlano) + plano.w)) * normalPlano); // Podríamos usar glm::reflect
@@ -73,6 +77,9 @@ struct Spheres {
 };
 bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos);
 glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere);
+void UwU() {
+
+}
 struct Particles {
 	std::vector<Spheres> spheres = std::vector<Spheres>(1, Spheres{ 2.5f, {0, 2.5f, -0} });
 
@@ -105,6 +112,7 @@ struct Particles {
 	}
 #pragma region ParticleUpdates
 	void InitParticles() {
+		srand(time(NULL));
 #pragma region sphereInit
 		extern bool renderSphere;
 		renderSphere = true;
@@ -183,7 +191,6 @@ struct Particles {
 		}
 	}
 	void UpdateParticles(float dt) {
-		glm::vec4 plano; 
 		// A cada frame inicializar X partículas 
 			// Si se superan, no hacer nada
 		if (maxVisible < maxParticles && hasStarted) {
@@ -194,36 +201,68 @@ struct Particles {
 		// Mantener un MaxVisible --> Esto afecta a la actualizacion tambien
 
 		hasStarted = true;
-		for (int i = 0; i < maxParticles; i++)
+		if (threading) {
+			if (maxThreads < 2) maxThreads = 2;
+			int calculateParticles = maxVisible / maxThreads;
+			int calculatedParticles = 0;
+			std::vector<std::thread> threads;
+			for (size_t i = 0; i < maxThreads; i++)
+			{
+				int temp1 = calculatedParticles;
+				int temp2 = calculatedParticles + calculateParticles;
+				float tempdt = dt;
+				std::thread thread(&Particles::UpdateParticlesSection, this, temp1, temp2, tempdt);
+				threads.push_back(std::move(thread));
+				calculatedParticles += calculateParticles;
+			}
+			for (size_t i = 0; i < threads.size(); i++)
+			{
+				threads[i].join();
+			}
+		}
+		else {
+			UpdateParticlesSection(0, maxVisible, dt);
+		}
+		LilSpheres::updateParticles(0, maxVisible, &positions[0].x);
+	}
+	void UpdateParticlesSection(const int & from,const int & to,const float & dt) {
+		for (int i = from; i < to; i++)
 		{
-			if (i < maxVisible) {
-				primaPositions[i] = eulerSolver(positions[i], speeds[i], dt);
-				primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
-			
+			UpdateParticle(i, dt);
+		}
+	}
+	void UpdateParticle(int i, float dt) {
+		glm::vec4 plano;
+		if (i < maxVisible) {
+			primaPositions[i] = eulerSolver(positions[i], speeds[i], dt);
+			primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 
+
+			plano = getRectFormula(
+				// Basandonos en los indices del cubo 
+				{ Box::cubeVerts[4 * 3], Box::cubeVerts[4 * 3 + 1], Box::cubeVerts[4 * 3 + 2] },
+				{ Box::cubeVerts[5 * 3], Box::cubeVerts[5 * 3 + 1], Box::cubeVerts[5 * 3 + 2] },
+				{ Box::cubeVerts[6 * 3], Box::cubeVerts[6 * 3 + 1], Box::cubeVerts[6 * 3 + 2] },
+				{ Box::cubeVerts[7 * 3], Box::cubeVerts[7 * 3 + 1], Box::cubeVerts[7 * 3 + 2] });
+			if (checkWithPlane(positions[i], primaPositions[i], plano)) {
+				primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
+				primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
+			}
+
+			for (int j = 0; j < 20; j += 4) {
 				plano = getRectFormula(
 					// Basandonos en los indices del cubo 
-					{ Box::cubeVerts[4 * 3], Box::cubeVerts[4 * 3 + 1], Box::cubeVerts[4 * 3 + 2] },
-					{ Box::cubeVerts[5 * 3], Box::cubeVerts[5 * 3 + 1], Box::cubeVerts[5 * 3 + 2] },
-					{ Box::cubeVerts[6 * 3], Box::cubeVerts[6 * 3 + 1], Box::cubeVerts[6 * 3 + 2] },
-					{ Box::cubeVerts[7 * 3], Box::cubeVerts[7 * 3 + 1], Box::cubeVerts[7 * 3 + 2] });
+					{ Box::cubeVerts[Box::cubeIdx[j] * 3], Box::cubeVerts[Box::cubeIdx[j] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j] * 3 + 2] },
+					{ Box::cubeVerts[Box::cubeIdx[j + 1] * 3], Box::cubeVerts[Box::cubeIdx[j + 1] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 1] * 3 + 2] },
+					{ Box::cubeVerts[Box::cubeIdx[j + 2] * 3], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 2] },
+					{ Box::cubeVerts[Box::cubeIdx[j + 3] * 3], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 2] });
 				if (checkWithPlane(positions[i], primaPositions[i], plano)) {
 					primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
 					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
 				}
-
-				for (int j = 0; j < 20; j += 4) {
-					plano = getRectFormula(
-						// Basandonos en los indices del cubo 
-						{ Box::cubeVerts[Box::cubeIdx[j] * 3], Box::cubeVerts[Box::cubeIdx[j] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j] * 3 + 2] },
-						{ Box::cubeVerts[Box::cubeIdx[j + 1] * 3], Box::cubeVerts[Box::cubeIdx[j + 1] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 1] * 3 + 2] },
-						{ Box::cubeVerts[Box::cubeIdx[j + 2] * 3], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 2] },
-						{ Box::cubeVerts[Box::cubeIdx[j + 3] * 3], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 2] });
-					if (checkWithPlane(positions[i], primaPositions[i], plano)) {
-						primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
-						primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
-					}
-				}
+			}
+			extern bool renderSphere;
+			if(renderSphere)
 				for (auto it = spheres.begin(); it < spheres.end(); it++)
 				{
 					if (CheckCollisionWithSphere(*it, primaPositions[i])) {
@@ -232,72 +271,67 @@ struct Particles {
 						primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
 					}
 				}
-				speeds[i] = primaSpeeds[i];
-				positions[i] = primaPositions[i];
+			speeds[i] = primaSpeeds[i];
+			positions[i] = primaPositions[i];
 
-				currentLifeTime[i] += dt;
-				if (currentLifeTime[i] >= lifeTime[i]) {
-					float x = -5 + min + (float)rand() / (RAND_MAX / (max - min));
-					float z = -5 + min + (float)rand() / (RAND_MAX / (max - min));
-					float tmpX = (float)(rand() % 500) / 100.f - 2.5f;
-					float tmpZ = (float)(rand() % 500) / 100.f - 2.5f;
-					float tmpY = 5.f;
-					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-					currentLifeTime[i] = 0;
-					glm::vec3 originPosition;
-					switch (mode)
+			currentLifeTime[i] += dt;
+			if (currentLifeTime[i] >= lifeTime[i]) {
+				float x = -5 + min + (float)rand() / (RAND_MAX / (max - min));
+				float z = -5 + min + (float)rand() / (RAND_MAX / (max - min));
+				float tmpX = (float)(rand() % 500) / 100.f - 2.5f;
+				float tmpZ = (float)(rand() % 500) / 100.f - 2.5f;
+				float tmpY = 5.f;
+				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+				currentLifeTime[i] = 0;
+				glm::vec3 originPosition;
+				switch (mode)
+				{
+				case Mode::FOUNTAIN:
+					primaPositions[i] = positions[i] = fountainOrigin;
+					break;
+				case Mode::CASCADE:
+
+					switch (axis)
 					{
-					case Mode::FOUNTAIN:
-						primaPositions[i] = positions[i] = fountainOrigin;
+					case CascadeAxis::X_LEFT:
+						originPosition = { -5.f + distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) - 5 };
+						tmpX = (float)(rand() % 250) / 100.f + 2.5f;
+						tmpZ = 0.0f;
+						tmpY = 1.f;
+						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
-					case Mode::CASCADE:
-
-						switch (axis)
-						{
-						case CascadeAxis::X_LEFT:
-							originPosition = { -5.f + distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) - 5 };
-							tmpX = (float)(rand() % 250) / 100.f + 2.5f;
-							tmpZ = 0.0f;
-							tmpY = 1.f;
-							primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-							break;
-						case CascadeAxis::X_RIGHT:
-							originPosition = { +5.f - distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) - 5 };
-							tmpX = (float)(rand() % 250) / 100.f - 5.f;
-							tmpZ = 0.0f;
-							tmpY = 1.f;
-							primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-							break;
-						case CascadeAxis::Z_FRONT:
-							originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
-							tmpX = 0.0f;
-							tmpZ = (float)(rand() % 250) / 100.f - 5.f;
-							tmpY = 1.f;
-							primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-							break;
-						case CascadeAxis::Z_BACK:
-							originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
-							tmpZ = (float)(rand() % 250) / 100.f + 2.5f;
-							tmpX = 0.0f;
-							tmpY = 1.f;
-							primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-							break;
-						default:
-							break;
-						}
-						primaPositions[i] = positions[i] = originPosition;
-
-
+					case CascadeAxis::X_RIGHT:
+						originPosition = { +5.f - distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) - 5 };
+						tmpX = (float)(rand() % 250) / 100.f - 5.f;
+						tmpZ = 0.0f;
+						tmpY = 1.f;
+						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+						break;
+					case CascadeAxis::Z_FRONT:
+						originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
+						tmpX = 0.0f;
+						tmpZ = (float)(rand() % 250) / 100.f - 5.f;
+						tmpY = 1.f;
+						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+						break;
+					case CascadeAxis::Z_BACK:
+						originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
+						tmpZ = (float)(rand() % 250) / 100.f + 2.5f;
+						tmpX = 0.0f;
+						tmpY = 1.f;
+						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					default:
 						break;
 					}
+					primaPositions[i] = positions[i] = originPosition;
+
+
+					break;
+				default:
+					break;
 				}
 			}
-		
-			LilSpheres::updateParticles(0, maxVisible, &positions[0].x);
-
-			
 		}
 	}
 	void CleanParticles() {
@@ -388,6 +422,18 @@ void GUI() {
 	}
 
 	ImGui::NewLine();
+	ImGui::Text("System options:");
+	bool lastThreading = threading;
+	ImGui::Checkbox("MultiThreading (EXPERIMENTAL!)", &threading);
+	if (threading) {
+		std::string maxThreadsLabel = "Max threads ";
+		if (maxThreads == std::thread::hardware_concurrency())
+			maxThreadsLabel += "(Recommended)";
+		ImGui::SliderInt(maxThreadsLabel.c_str(), &maxThreads, 2, std::thread::hardware_concurrency() * 4);
+	}
+	if(threading != lastThreading) parts.ResetParticles();
+	ImGui::NewLine();
+	ImGui::Text("Particle system:");
 	std::string spawned = "Spawned particles: " + std::to_string((int)parts.maxVisible);
 	ImGui::Text(spawned.c_str());
 	ImGui::Text("Emitter options:");
@@ -408,7 +454,7 @@ void GUI() {
 	}
 	ImGui::DragFloat3("Start Acceleration", &EditedSettings::originalSpeed[0], .01f);
 	ImGui::SliderFloat("Life", &EditedSettings::originalLifetime,.5f,10);
-	ImGui::SliderFloat("Emission Rate", &EditedSettings::emissionRate,1,500);
+	ImGui::SliderFloat("Emission Rate", &EditedSettings::emissionRate,1,1000);
 
 
 	ImGui::NewLine();
@@ -518,6 +564,8 @@ void GUI() {
 	//	parts.spheres.pop_back();
 	//}
 	//Sphere::cleanupSphere();
+	extern bool renderSphere;
+	ImGui::Checkbox("Enable", &renderSphere);
 	for (size_t i = 0; i < parts.spheres.size(); i++)
 	{
 		ImGui::Spacing();
