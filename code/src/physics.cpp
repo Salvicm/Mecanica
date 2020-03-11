@@ -107,15 +107,16 @@ struct Particles {
 	glm::vec3 *primaSpeeds;
 	float *lifeTime;
 	float *currentLifeTime;
-	glm::vec3 originalSpeed = { 0,1,0 }; // UI --> Velocidad original para la fuente
+	glm::vec3 originalSpeed = { -1,0,0 }; // UI --> Velocidad original
+	float overture = 0.5f;
 	float originalLifetime = 2.5f; // UI --> >=0.5
 	// Physics parameters
 	// UI --> El minimo y el máximo de la cantidad de partículas
 	float min = 0.0f; 
 	float max = 1000.0f;
-	int maxParticles = 1000; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays dinámicos y llamar a InitParticles
-	float maxVisible = 0;
 	float emissionRate = 100;
+	int maxParticles = emissionRate * originalLifetime; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays dinámicos y llamar a InitParticles
+	float maxVisible = 0;
 	bool hasStarted = false;
 #pragma endregion
 	void SetMaxParticles(int n) {
@@ -143,13 +144,19 @@ struct Particles {
 		extern bool renderParticles;
 		renderParticles = true;
 
+		for (int i = 0; i < maxParticles; i++)
+		{
+			glm::vec3 originPosition = { 0,0,0 };
+			primaPositions[i] = positions[i] = originPosition;
+		}
+		LilSpheres::updateParticles(0, maxParticles, &positions[0].x);
 
 		for (int i = 0; i < maxParticles; i++)
 		{
-			
-			float tmpX = (float)(rand() % 500) / 100.f - 2.5f;
-			float tmpZ = (float)(rand() % 500) / 100.f - 2.5f;
-			float tmpY = 5.f;
+
+			float tmpX = originalSpeed.x;
+			float tmpY = originalSpeed.y;
+			float tmpZ = originalSpeed.z;
 			primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 			lifeTime[i] = originalLifetime;
 			currentLifeTime[i] = 0;
@@ -158,37 +165,38 @@ struct Particles {
 			{
 			case Mode::FOUNTAIN:
 				primaPositions[i] = positions[i] = fountainOrigin;
+				if (overture >= 0.01f) {
+					tmpX += float((rand() % int(overture * 4 * 100)) / 100.f) - (overture * 2);
+					tmpZ += float((rand() % int(overture * 4 * 100)) / 100.f) - (overture * 2);
+				}
+				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 				break;
 			case Mode::CASCADE:
 				
 				switch (axis)
 				{
 				case CascadeAxis::X_LEFT:
-					originPosition = {-5.f + distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) -5 }; 
-					tmpX = (float)(rand() % 250) / 100.f + 2.5f;
-					tmpZ = 0.0f;
-					tmpY = 1.f;
+					originPosition = {-5.f + distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) -5 };
+					if (overture >= 0.01f)
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::X_RIGHT:
-					originPosition = {+5.f - distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) -5 };
-					tmpX = (float)(rand() % 250) / 100.f - 5.f;
-					tmpZ = 0.0f;
-					tmpY = 1.f;
+					originPosition = {+5.f - distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) -5 };
+					if (overture >= 0.01f)
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture/2);
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::Z_FRONT:
-					originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis }; 
-					tmpX = 0.0f;
-					tmpZ = (float)(rand() % 250) / 100.f - 5.f;
-					tmpY = 1.f;
+					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
+					if (overture >= 0.01f)
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::Z_BACK:
-					originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis }; 
-					tmpZ = (float)(rand() % 250) / 100.f + 2.5f;
-					tmpX = 0.0f;
-					tmpY = 1.f;
+					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
+					if (overture >= 0.01f)
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				default:
@@ -301,47 +309,47 @@ struct Particles {
 			if (currentLifeTime[i] >= lifeTime[i]) {
 				float x = -5 + min + (float)rand() / (RAND_MAX / (max - min));
 				float z = -5 + min + (float)rand() / (RAND_MAX / (max - min));
-				float tmpX = (float)(rand() % 500) / 100.f - 2.5f;
-				float tmpZ = (float)(rand() % 500) / 100.f - 2.5f;
-				float tmpY = 5.f;
-				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 				currentLifeTime[i] = 0;
 				glm::vec3 originPosition;
+				float tmpX = originalSpeed.x;
+				float tmpY = originalSpeed.y;
+				float tmpZ = originalSpeed.z;
 				switch (mode)
 				{
 				case Mode::FOUNTAIN:
 					primaPositions[i] = positions[i] = fountainOrigin;
+					if (overture >= 0.01f) {
+						tmpX += float((rand() % int(overture * 4 * 100)) / 100.f) - (overture * 2);
+						tmpZ += float((rand() % int(overture * 4 * 100)) / 100.f) - (overture * 2);
+					}
+					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case Mode::CASCADE:
 
 					switch (axis)
 					{
 					case CascadeAxis::X_LEFT:
-						originPosition = { -5.f + distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) - 5 };
-						tmpX = (float)(rand() % 250) / 100.f + 2.5f;
-						tmpZ = 0.0f;
-						tmpY = 1.f;
+						originPosition = { -5.f + distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 };
+						if (overture >= 0.01f)
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					case CascadeAxis::X_RIGHT:
-						originPosition = { +5.f - distFromAxis, cascadeHeight, (((float)(rand() % 100) / 100.f) * 10.f) - 5 };
-						tmpX = (float)(rand() % 250) / 100.f - 5.f;
-						tmpZ = 0.0f;
-						tmpY = 1.f;
+						originPosition = { +5.f - distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 };
+						if (overture >= 0.01f)
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					case CascadeAxis::Z_FRONT:
-						originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
-						tmpX = 0.0f;
-						tmpZ = (float)(rand() % 250) / 100.f - 5.f;
-						tmpY = 1.f;
+						originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
+						if (overture >= 0.01f)
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					case CascadeAxis::Z_BACK:
-						originPosition = { (((float)(rand() % 100) / 100.f) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
-						tmpZ = (float)(rand() % 250) / 100.f + 2.5f;
-						tmpX = 0.0f;
-						tmpY = 1.f;
+						originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
+						if (overture >= 0.01f)
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					default:
@@ -377,64 +385,6 @@ struct Particles {
 
 bool show_test_window = false;
 
-namespace OriginalSettings {
-	Mode mode = parts.mode;
-
-	//CASCADE
-	CascadeAxis axis = parts.axis;
-	float distFromAxis = parts.distFromAxis;
-	float cascadeHeight = parts.cascadeHeight;
-
-	//FOUNTAIN
-	glm::vec3 fountainOrigin = parts.fountainOrigin;
-
-	//GENERAL
-	glm::vec3 originalSpeed = parts.originalSpeed;
-	float originalLifetime = parts.originalLifetime;
-	int maxParticles = parts.maxParticles; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays dinámicos y llamar a InitParticles
-	float emissionRate = parts.emissionRate;
-
-	//PHYSICS
-	float elasticity_ = elasticity;
-	glm::vec3 acceleration = parts.acceleration;
-
-	//OBJECTS
-	//std::vector<Spheres> spheres = parts.spheres;
-	//int sphereCount = parts.spheres.size();
-
-	// UI --> El minimo y el máximo de la cantidad de partículas
-	float min = parts.min;
-	float max = parts.max;
-}
-namespace EditedSettings {
-	Mode mode = parts.mode;
-
-	//CASCADE
-	CascadeAxis axis = parts.axis;
-	float distFromAxis = parts.distFromAxis;
-	float cascadeHeight = parts.cascadeHeight;
-
-	//FOUNTAIN
-	glm::vec3 fountainOrigin = parts.fountainOrigin;
-
-	//GENERAL
-	glm::vec3 originalSpeed = parts.originalSpeed;
-	float originalLifetime = parts.originalLifetime;
-	int maxParticles = parts.maxParticles; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays dinámicos y llamar a InitParticles
-	float emissionRate = parts.emissionRate;
-
-	//PHYSICS
-	float elasticity_ = elasticity;
-	glm::vec3 acceleration = parts.acceleration;
-
-	//OBJECTS
-	//std::vector<Spheres> spheres = parts.spheres;
-	//int sphereCount = parts.spheres.size();
-
-	// UI --> El minimo y el máximo de la cantidad de partículas
-	float min = parts.min;
-	float max = parts.max;
-}
 
 void GUI() {
 	bool show = true;
@@ -447,7 +397,6 @@ void GUI() {
 	ImGui::NewLine();
 	ImGui::Text("System options:");
 	ImGui::Combo("Computing mode", (int*)(&exMode), ExecutionModeString, 3);
-	ExecutionMode lastExMode = exMode;
 	if (exMode == ExecutionMode::MULTITHREADING) {
 		std::string maxThreadsLabel = "Max threads ";
 		if (maxThreads == std::thread::hardware_concurrency())
@@ -457,127 +406,42 @@ void GUI() {
 #if ppl == 0
 	if (exMode == ExecutionMode::PARALLEL) exMode = ExecutionMode::STANDARD;
 #endif
-	if(exMode != lastExMode) parts.ResetParticles();
 	ImGui::NewLine();
 	ImGui::Text("Particle system:");
-	std::string spawned = "Spawned particles: " + std::to_string((int)parts.maxVisible);
+	std::string spawned = "Spawned particles: " + std::to_string((int)parts.maxVisible) + " / " + std::to_string((int)parts.maxParticles);
 	ImGui::Text(spawned.c_str());
 	ImGui::Text("Emitter options:");
-	ImGui::SliderInt("Max Particles", &EditedSettings::maxParticles,100,5000);
-	ImGui::Combo("Type", (int*)(&EditedSettings::mode), ModeString, 2);
+	ImGui::Combo("Type", (int*)(&parts.mode), ModeString, 2);
 
-	if (EditedSettings::mode == Mode::CASCADE) {
+	if (parts.mode == Mode::CASCADE) {
 		ImGui::Spacing();
-		ImGui::Combo("Position", (int*)(&EditedSettings::axis), CascadeAxisString, 4);
-		ImGui::SliderFloat("Distance from axis", &EditedSettings::distFromAxis, 0, 5);
-		ImGui::SliderFloat("Height", &EditedSettings::cascadeHeight, 0, 9.999f);
+		ImGui::Combo("Position", (int*)(&parts.axis), CascadeAxisString, 4);
+		ImGui::SliderFloat("Distance from axis", &parts.distFromAxis, 0, 5);
+		ImGui::SliderFloat("Height", &parts.cascadeHeight, 0, 9.999f);
 		ImGui::Spacing();
 	}
 	else {
 		ImGui::Spacing();
-		ImGui::DragFloat3("Position", &EditedSettings::fountainOrigin[0], .01f);
+		ImGui::DragFloat3("Position", &parts.fountainOrigin[0], .01f);
 		ImGui::Spacing();
 	}
-	ImGui::DragFloat3("Start Acceleration", &EditedSettings::originalSpeed[0], .01f);
-	ImGui::SliderFloat("Life", &EditedSettings::originalLifetime,.5f,10);
-	ImGui::SliderFloat("Emission Rate", &EditedSettings::emissionRate,1,1000);
+	ImGui::SliderFloat("Overture", &parts.overture,0,1);
+	ImGui::DragFloat3("Start Acceleration", &parts.originalSpeed[0], .01f);
+	float lastLife = parts.originalLifetime;
+	float lastEmission = parts.emissionRate;
+	ImGui::SliderFloat("Life", &parts.originalLifetime,.5f,10);
+	ImGui::SliderFloat("Emission Rate", &parts.emissionRate,1,1000);
+	if (parts.originalLifetime != lastLife || parts.emissionRate != lastEmission) {
+		parts.maxParticles = parts.originalLifetime * parts.emissionRate;
+		parts.ResetParticles();
+	}
 
 
 	ImGui::NewLine();
 	ImGui::Text("Physics options:");
 	ImGui::SliderFloat("Elasticity", &elasticity, .5f, 1);
-	ImGui::DragFloat3("Global Acceleration", &EditedSettings::acceleration[0], .01f);
+	ImGui::DragFloat3("Global Acceleration", &parts.acceleration[0], .01f);
 
-	ImGui::NewLine();
-
-	if (OriginalSettings::mode != parts.mode
-		|| OriginalSettings::axis != parts.axis
-		|| OriginalSettings::distFromAxis != parts.distFromAxis
-		|| OriginalSettings::cascadeHeight != parts.cascadeHeight
-		|| OriginalSettings::fountainOrigin != parts.fountainOrigin
-		|| OriginalSettings::originalSpeed != parts.originalSpeed
-		|| OriginalSettings::originalLifetime != parts.originalLifetime
-		|| OriginalSettings::elasticity_ != elasticity
-		|| OriginalSettings::acceleration != parts.acceleration
-		|| OriginalSettings::min != parts.min
-		|| OriginalSettings::max != parts.max
-		|| OriginalSettings::maxParticles != parts.maxParticles
-		|| OriginalSettings::emissionRate != parts.emissionRate
-		)
-	{
-		if (ImGui::Button("Reset Settings")) {
-			parts.mode = OriginalSettings::mode;
-			parts.axis = OriginalSettings::axis;
-			parts.distFromAxis = OriginalSettings::distFromAxis;
-			parts.cascadeHeight = OriginalSettings::cascadeHeight;
-			parts.fountainOrigin = OriginalSettings::fountainOrigin;
-			parts.originalSpeed = OriginalSettings::originalSpeed;
-			parts.originalLifetime = OriginalSettings::originalLifetime;
-			elasticity = OriginalSettings::elasticity_;
-			parts.acceleration = OriginalSettings::acceleration;
-			parts.min = OriginalSettings::min;
-			parts.max = OriginalSettings::max;
-			parts.maxParticles = OriginalSettings::maxParticles;
-			parts.emissionRate = OriginalSettings::emissionRate;
-
-			EditedSettings::mode = OriginalSettings::mode;
-			EditedSettings::axis = OriginalSettings::axis;
-			EditedSettings::distFromAxis = OriginalSettings::distFromAxis;
-			EditedSettings::cascadeHeight = OriginalSettings::cascadeHeight;
-			EditedSettings::fountainOrigin = OriginalSettings::fountainOrigin;
-			EditedSettings::originalSpeed = OriginalSettings::originalSpeed;
-			EditedSettings::originalLifetime = OriginalSettings::originalLifetime;
-			EditedSettings::elasticity_ = OriginalSettings::elasticity_;
-			EditedSettings::acceleration = OriginalSettings::acceleration;
-			EditedSettings::min = OriginalSettings::min;
-			EditedSettings::max = OriginalSettings::max;
-			EditedSettings::maxParticles = OriginalSettings::maxParticles;
-			EditedSettings::emissionRate = OriginalSettings::emissionRate;
-
-			parts.ResetParticles();
-		}
-	}
-	else {
-		ImGui::Spacing();
-		ImGui::Text(" Reset Settings");
-	}
-
-	if (EditedSettings::mode != parts.mode
-		|| EditedSettings::axis != parts.axis
-		|| EditedSettings::distFromAxis != parts.distFromAxis
-		|| EditedSettings::cascadeHeight != parts.cascadeHeight
-		|| EditedSettings::fountainOrigin != parts.fountainOrigin
-		|| EditedSettings::originalSpeed != parts.originalSpeed
-		|| EditedSettings::originalLifetime != parts.originalLifetime
-		|| EditedSettings::elasticity_ != elasticity
-		|| EditedSettings::acceleration != parts.acceleration
-		|| EditedSettings::min != parts.min
-		|| EditedSettings::max != parts.max
-		|| EditedSettings::maxParticles != parts.maxParticles
-		|| EditedSettings::emissionRate != parts.emissionRate
-		)
-	{
-		if (ImGui::Button("Apply Settings")) {
-			parts.mode = EditedSettings::mode;
-			parts.axis = EditedSettings::axis;
-			parts.distFromAxis = EditedSettings::distFromAxis;
-			parts.cascadeHeight = EditedSettings::cascadeHeight;
-			parts.fountainOrigin = EditedSettings::fountainOrigin;
-			parts.originalSpeed = EditedSettings::originalSpeed;
-			parts.originalLifetime = EditedSettings::originalLifetime;
-			elasticity = EditedSettings::elasticity_;
-			parts.acceleration = EditedSettings::acceleration;
-			parts.min = EditedSettings::min;
-			parts.max = EditedSettings::max;
-			parts.maxParticles = EditedSettings::maxParticles;
-			parts.emissionRate = EditedSettings::emissionRate;
-			parts.ResetParticles();
-		}
-	}
-	else {
-		ImGui::Spacing();
-		ImGui::Text(" Apply Settings");
-	}
 
 	ImGui::NewLine();
 	ImGui::Text("Objects:");
