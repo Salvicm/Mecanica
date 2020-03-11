@@ -28,7 +28,7 @@ static const char* ExecutionModeString[]{ "Standard", "Parallel (EXPERIMENTAL!)"
 static const char* ExecutionModeString[]{ "Standard", "Parallel (c++17 not aviable)", "Multithreading (EXPERIMENTAL!)" };
 #endif
 enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
-static const char* CascadeAxisString[]{ "Z left", "X right", "Z front", "Z back" };
+static const char* CascadeAxisString[]{ "X left", "X right", "Z front", "Z back" };
 
 //Function declarations
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
@@ -107,7 +107,12 @@ struct Particles {
 	glm::vec3 *primaSpeeds;
 	float *lifeTime;
 	float *currentLifeTime;
-	glm::vec3 originalSpeed = { -1,0,0 }; // UI --> Velocidad original
+	glm::vec3 originalSpeed = { -2,0,0 }; // UI --> Velocidad original
+	const glm::vec3 FountainOriginalSpeed = { 0,5,0 };
+	const glm::vec3 CascadeFXOriginalSpeed = { 2,0,0 };
+	const glm::vec3 CascadeBXOriginalSpeed = { -2,0,0 };
+	const glm::vec3 CascadeFZOriginalSpeed = { 0,0,2 };
+	const glm::vec3 CascadeBZOriginalSpeed = { 0,0,-2 };
 	float overture = 0.5f;
 	float originalLifetime = 2.5f; // UI --> >=0.5
 	// Physics parameters
@@ -126,8 +131,6 @@ struct Particles {
 	void InitParticles() {
 		srand(time(NULL));
 #pragma region sphereInit
-		extern bool renderSphere;
-		renderSphere = true;
 		Sphere::setupSphere(spheres[0].position, spheres[0].radius);
 #pragma endregion
 
@@ -166,8 +169,9 @@ struct Particles {
 			case Mode::FOUNTAIN:
 				primaPositions[i] = positions[i] = fountainOrigin;
 				if (overture >= 0.01f) {
-					tmpX += float((rand() % int(overture * 4 * 100)) / 100.f) - (overture * 2);
-					tmpZ += float((rand() % int(overture * 4 * 100)) / 100.f) - (overture * 2);
+					tmpX += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
+					tmpY += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
+					tmpZ += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
 				}
 				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 				break;
@@ -177,26 +181,38 @@ struct Particles {
 				{
 				case CascadeAxis::X_LEFT:
 					originPosition = {-5.f + distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) -5 };
-					if (overture >= 0.01f)
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
+					if (overture >= 0.01f) {
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::X_RIGHT:
 					originPosition = {+5.f - distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) -5 };
-					if (overture >= 0.01f)
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture/2);
+					if (overture >= 0.01f) {
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::Z_FRONT:
 					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
-					if (overture >= 0.01f)
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
+					if (overture >= 0.01f) {
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::Z_BACK:
 					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
-					if (overture >= 0.01f)
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
+					if (overture >= 0.01f) {
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				default:
@@ -319,8 +335,9 @@ struct Particles {
 				case Mode::FOUNTAIN:
 					primaPositions[i] = positions[i] = fountainOrigin;
 					if (overture >= 0.01f) {
-						tmpX += float((rand() % int(overture * 4 * 100)) / 100.f) - (overture * 2);
-						tmpZ += float((rand() % int(overture * 4 * 100)) / 100.f) - (overture * 2);
+						tmpX += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
+						tmpY += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
+						tmpZ += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
@@ -330,26 +347,38 @@ struct Particles {
 					{
 					case CascadeAxis::X_LEFT:
 						originPosition = { -5.f + distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 };
-						if (overture >= 0.01f)
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
+						if (overture >= 0.01f) {
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						}
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					case CascadeAxis::X_RIGHT:
 						originPosition = { +5.f - distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 };
-						if (overture >= 0.01f)
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
+						if (overture >= 0.01f) {
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						}
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					case CascadeAxis::Z_FRONT:
 						originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
-						if (overture >= 0.01f)
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
+						if (overture >= 0.01f) {
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						}
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					case CascadeAxis::Z_BACK:
 						originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
-						if (overture >= 0.01f)
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * overture - (overture / 2);
+						if (overture >= 0.01f) {
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						}
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					default:
@@ -411,6 +440,8 @@ void GUI() {
 	std::string spawned = "Spawned particles: " + std::to_string((int)parts.maxVisible) + " / " + std::to_string((int)parts.maxParticles);
 	ImGui::Text(spawned.c_str());
 	ImGui::Text("Emitter options:");
+	Mode lastMode = parts.mode;
+	CascadeAxis lastAxis = parts.axis;
 	ImGui::Combo("Type", (int*)(&parts.mode), ModeString, 2);
 
 	if (parts.mode == Mode::CASCADE) {
@@ -425,6 +456,28 @@ void GUI() {
 		ImGui::DragFloat3("Position", &parts.fountainOrigin[0], .01f);
 		ImGui::Spacing();
 	}
+	if (lastMode != parts.mode || lastAxis != parts.axis) {
+		if (parts.mode == Mode::FOUNTAIN) {
+			parts.originalSpeed = parts.FountainOriginalSpeed;
+		}
+		else {
+			switch (parts.axis)
+			{
+			case CascadeAxis::X_LEFT:
+				parts.originalSpeed = parts.CascadeFXOriginalSpeed;
+				break;
+			case CascadeAxis::X_RIGHT:
+				parts.originalSpeed = parts.CascadeBXOriginalSpeed;
+				break;
+			case CascadeAxis::Z_BACK:
+				parts.originalSpeed = parts.CascadeFZOriginalSpeed;
+				break;
+			case CascadeAxis::Z_FRONT:
+				parts.originalSpeed = parts.CascadeBZOriginalSpeed;
+				break;
+			}
+		}
+	}
 	ImGui::SliderFloat("Overture", &parts.overture,0,1);
 	ImGui::DragFloat3("Start Acceleration", &parts.originalSpeed[0], .01f);
 	float lastLife = parts.originalLifetime;
@@ -434,6 +487,16 @@ void GUI() {
 	if (parts.originalLifetime != lastLife || parts.emissionRate != lastEmission) {
 		parts.maxParticles = parts.originalLifetime * parts.emissionRate;
 		parts.ResetParticles();
+	}
+
+	if (parts.maxVisible < parts.maxParticles) {
+		if (ImGui::Button("Force apply")) {
+			parts.ResetParticles();
+		}
+	}else{
+		if (ImGui::Button("Reset")) {
+			parts.ResetParticles();
+		}
 	}
 
 
