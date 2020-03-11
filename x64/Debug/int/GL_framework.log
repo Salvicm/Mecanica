@@ -1,7 +1,11 @@
 ﻿  physics.cpp
-c:\users\salvio.calvillo\documents\alos95-glframework_phys-0d4db1579af8\mecanica\code\src\physics.cpp(192): warning C4244: '=': conversion from 'int' to 'float', possible loss of data
-c:\users\salvio.calvillo\documents\alos95-glframework_phys-0d4db1579af8\mecanica\code\src\physics.cpp(297): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
-     Creating library C:\Users\salvio.calvillo\Documents\alos95-glframework_phys-0d4db1579af8\Mecanica\x64\Debug\GL_framework.lib and object C:\Users\salvio.calvillo\Documents\alos95-glframework_phys-0d4db1579af8\Mecanica\x64\Debug\GL_framework.exp
+c:\users\salvio.calvillo\documents\alos95-glframework_phys-0d4db1579af8\mecanica\code\src\physics.cpp(123): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+c:\users\salvio.calvillo\documents\alos95-glframework_phys-0d4db1579af8\mecanica\code\src\physics.cpp(132): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
+c:\users\salvio.calvillo\documents\alos95-glframework_phys-0d4db1579af8\mecanica\code\src\physics.cpp(235): warning C4244: '=': conversion from 'int' to 'float', possible loss of data
+c:\users\salvio.calvillo\documents\alos95-glframework_phys-0d4db1579af8\mecanica\code\src\physics.cpp(251): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+c:\users\salvio.calvillo\documents\alos95-glframework_phys-0d4db1579af8\mecanica\code\src\physics.cpp(270): warning C4244: 'argument': conversion from 'float' to 'const int', possible loss of data
+c:\users\salvio.calvillo\documents\alos95-glframework_phys-0d4db1579af8\mecanica\code\src\physics.cpp(273): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+c:\users\salvio.calvillo\documents\alos95-glframework_phys-0d4db1579af8\mecanica\code\src\physics.cpp(489): warning C4244: '=': conversion from 'float' to 'int', possible loss of data
   GL_framework.vcxproj -> C:\Users\salvio.calvillo\Documents\alos95-glframework_phys-0d4db1579af8\Mecanica\x64\Debug\GL_framework.exe
   0 archivo(s) copiado(s)
   0 archivo(s) copiado(s)

@@ -18,8 +18,8 @@
 
 float elasticity = 0.75f;
 int maxThreads = std::thread::hardware_concurrency();
-enum class Mode{FOUNTAIN, CASCADE};
-static const char* ModeString[]{ "Fountain", "Cascade" };
+enum class Mode{FOUNTAIN, CASCADE_FACES, CASCADE_POINTS};
+static const char* ModeString[]{ "Fountain", "Cascade by faces", "Cascade by points" };
 enum class ExecutionMode{STANDARD, PARALLEL, MULTITHREADING};
 ExecutionMode exMode = ExecutionMode::PARALLEL;
 #if ppl == 1
@@ -88,14 +88,12 @@ struct Spheres {
 };
 bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos);
 glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere);
-void UwU() {
 
-}
 struct Particles {
 	std::vector<Spheres> spheres = std::vector<Spheres>(1, Spheres{ 2.5f, {0, 2.5f, -0} });
 
 #pragma region BasicParticlesData
-	Mode mode = Mode::CASCADE; // UI  --> El selector entre fuente y cascada
+	Mode mode = Mode::CASCADE_FACES; // UI  --> El selector entre fuente y cascada
 	CascadeAxis axis = CascadeAxis::X_RIGHT; // UI --> El selector entre ejes de la cascada
 	float distFromAxis = 2.0f; // UI --> 0 - 5 --> Distancia a la pared en cascada
 	float cascadeHeight = 5.0f; // UI --> 0 - 9.99 --> Altura de la cascada
@@ -113,6 +111,9 @@ struct Particles {
 	const glm::vec3 CascadeBXOriginalSpeed = { -2,0,0 };
 	const glm::vec3 CascadeFZOriginalSpeed = { 0,0,2 };
 	const glm::vec3 CascadeBZOriginalSpeed = { 0,0,-2 };
+
+	glm::vec3 CascadePointA;
+	glm::vec3 CascadePointB;
 	float overture = 0.5f;
 	float originalLifetime = 2.5f; // UI --> >=0.5
 	// Physics parameters
@@ -175,7 +176,7 @@ struct Particles {
 				}
 				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 				break;
-			case Mode::CASCADE:
+			case Mode::CASCADE_FACES:
 				
 				switch (axis)
 				{
@@ -219,6 +220,9 @@ struct Particles {
 					break;
 				}
 				primaPositions[i] = positions[i] = originPosition;
+				break;
+			case Mode::CASCADE_POINTS:
+				// TODO
 				break;
 			default:
 				break;
@@ -341,7 +345,7 @@ struct Particles {
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
-				case Mode::CASCADE:
+				case Mode::CASCADE_FACES:
 
 					switch (axis)
 					{
@@ -387,6 +391,9 @@ struct Particles {
 					primaPositions[i] = positions[i] = originPosition;
 
 
+					break;
+				case Mode::CASCADE_POINTS:
+					// TODO
 					break;
 				default:
 					break;
@@ -444,17 +451,20 @@ void GUI() {
 	CascadeAxis lastAxis = parts.axis;
 	ImGui::Combo("Type", (int*)(&parts.mode), ModeString, 2);
 
-	if (parts.mode == Mode::CASCADE) {
+	if (parts.mode == Mode::CASCADE_FACES) {
 		ImGui::Spacing();
 		ImGui::Combo("Position", (int*)(&parts.axis), CascadeAxisString, 4);
 		ImGui::SliderFloat("Distance from axis", &parts.distFromAxis, 0, 5);
 		ImGui::SliderFloat("Height", &parts.cascadeHeight, 0, 9.999f);
 		ImGui::Spacing();
 	}
-	else {
+	else if (parts.mode == Mode::FOUNTAIN) {
 		ImGui::Spacing();
 		ImGui::DragFloat3("Position", &parts.fountainOrigin[0], .01f);
 		ImGui::Spacing();
+	}
+	else if (parts.mode == Mode::CASCADE_POINTS) {
+	// TODO
 	}
 	if (lastMode != parts.mode || lastAxis != parts.axis) {
 		if (parts.mode == Mode::FOUNTAIN) {
