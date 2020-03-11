@@ -21,11 +21,11 @@ int maxThreads = std::thread::hardware_concurrency();
 enum class Mode{FOUNTAIN, CASCADE};
 static const char* ModeString[]{ "Fountain", "Cascade" };
 enum class ExecutionMode{STANDARD, PARALLEL, MULTITHREADING};
-ExecutionMode exMode = ExecutionMode::STANDARD;
+ExecutionMode exMode = ExecutionMode::PARALLEL;
 #if ppl == 1
-static const char* ExecutionModeString[]{ "Standard", "Parallel (EXPERIMENTAL!)", "Multithreading (EXPERIMENTAL!)" };
+static const char* ExecutionModeString[]{ "Sequential", "Parallel", "Multithreading (EXPERIMENTAL!)" };
 #else
-static const char* ExecutionModeString[]{ "Standard", "Parallel (c++17 not aviable)", "Multithreading (EXPERIMENTAL!)" };
+static const char* ExecutionModeString[]{ "Sequential", "Parallel (c++17 not aviable)", "Multithreading (EXPERIMENTAL!)" };
 #endif
 enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
 static const char* CascadeAxisString[]{ "X left", "X right", "Z front", "Z back" };
@@ -169,9 +169,9 @@ struct Particles {
 			case Mode::FOUNTAIN:
 				primaPositions[i] = positions[i] = fountainOrigin;
 				if (overture >= 0.01f) {
-					tmpX += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
-					tmpY += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
-					tmpZ += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
+					tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
+					tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
+					tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
 				}
 				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 				break;
@@ -182,36 +182,36 @@ struct Particles {
 				case CascadeAxis::X_LEFT:
 					originPosition = {-5.f + distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) -5 };
 					if (overture >= 0.01f) {
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::X_RIGHT:
 					originPosition = {+5.f - distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) -5 };
 					if (overture >= 0.01f) {
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::Z_FRONT:
 					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
 					if (overture >= 0.01f) {
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				case CascadeAxis::Z_BACK:
 					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
 					if (overture >= 0.01f) {
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
@@ -335,9 +335,9 @@ struct Particles {
 				case Mode::FOUNTAIN:
 					primaPositions[i] = positions[i] = fountainOrigin;
 					if (overture >= 0.01f) {
-						tmpX += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
-						tmpY += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
-						tmpZ += float((rand() % int(overture * 5 * 100)) / 100.f) - (overture * 2.5f);
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
@@ -348,36 +348,36 @@ struct Particles {
 					case CascadeAxis::X_LEFT:
 						originPosition = { -5.f + distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 };
 						if (overture >= 0.01f) {
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 						}
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					case CascadeAxis::X_RIGHT:
 						originPosition = { +5.f - distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 };
 						if (overture >= 0.01f) {
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 						}
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					case CascadeAxis::Z_FRONT:
 						originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
 						if (overture >= 0.01f) {
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 						}
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
 					case CascadeAxis::Z_BACK:
 						originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
 						if (overture >= 0.01f) {
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
-							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture - (overture / 2);
+							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 						}
 						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 						break;
@@ -478,12 +478,13 @@ void GUI() {
 			}
 		}
 	}
-	ImGui::SliderFloat("Overture", &parts.overture,0,1);
+	ImGui::SliderFloat("Overture", &parts.overture,0,1,"%.2f", .5f);
+	if (parts.overture < 0.01f) parts.overture = 0;
 	ImGui::DragFloat3("Start Acceleration", &parts.originalSpeed[0], .01f);
 	float lastLife = parts.originalLifetime;
 	float lastEmission = parts.emissionRate;
-	ImGui::SliderFloat("Life", &parts.originalLifetime,.5f,10);
-	ImGui::SliderFloat("Emission Rate", &parts.emissionRate,1,1000);
+	ImGui::SliderFloat("Life", &parts.originalLifetime,.5f,10, "%.2f", 2);
+	ImGui::SliderFloat("Emission Rate", &parts.emissionRate,1,1000, "%.2f", 2);
 	if (parts.originalLifetime != lastLife || parts.emissionRate != lastEmission) {
 		parts.maxParticles = parts.originalLifetime * parts.emissionRate;
 		parts.ResetParticles();
@@ -519,13 +520,14 @@ void GUI() {
 	//Sphere::cleanupSphere();
 	extern bool renderSphere;
 	ImGui::Checkbox("Enable", &renderSphere);
-	for (size_t i = 0; i < parts.spheres.size(); i++)
-	{
-		ImGui::Spacing();
-		ImGui::SliderFloat("Radius", &parts.spheres[i].radius, 0, 10);
-		ImGui::DragFloat3("Position", &parts.spheres[i].position[0], .01f);
-		Sphere::updateSphere(parts.spheres[i].position, parts.spheres[i].radius);
-	}
+	if(renderSphere)
+		for (size_t i = 0; i < parts.spheres.size(); i++)
+		{
+			ImGui::Spacing();
+			ImGui::SliderFloat("Radius", &parts.spheres[i].radius, 0, 10);
+			ImGui::DragFloat3("Position ", &parts.spheres[i].position[0], .01f);
+			Sphere::updateSphere(parts.spheres[i].position, parts.spheres[i].radius);
+		}
 	ImGui::NewLine();
 	ImGui::Text("Capsule:");
 	ImGui::End();
