@@ -449,28 +449,33 @@ void GUI() {
 	ImGui::Text("Emitter options:");
 	Mode lastMode = parts.mode;
 	CascadeAxis lastAxis = parts.axis;
-	ImGui::Combo("Type", (int*)(&parts.mode), ModeString, 2);
+	ImGui::Combo("Type", (int*)(&parts.mode), ModeString, 3);
 
-	if (parts.mode == Mode::CASCADE_FACES) {
+	switch (parts.mode)
+	{
+	case Mode::FOUNTAIN:
+		ImGui::Spacing();
+		ImGui::DragFloat3("Position", &parts.fountainOrigin[0], .01f);
+		ImGui::Spacing();
+		break;
+	case Mode::CASCADE_FACES:
 		ImGui::Spacing();
 		ImGui::Combo("Position", (int*)(&parts.axis), CascadeAxisString, 4);
 		ImGui::SliderFloat("Distance from axis", &parts.distFromAxis, 0, 5);
 		ImGui::SliderFloat("Height", &parts.cascadeHeight, 0, 9.999f);
 		ImGui::Spacing();
-	}
-	else if (parts.mode == Mode::FOUNTAIN) {
-		ImGui::Spacing();
-		ImGui::DragFloat3("Position", &parts.fountainOrigin[0], .01f);
-		ImGui::Spacing();
-	}
-	else if (parts.mode == Mode::CASCADE_POINTS) {
-	// TODO
+		break;
+	case Mode::CASCADE_POINTS:
+		break;
 	}
 	if (lastMode != parts.mode || lastAxis != parts.axis) {
-		if (parts.mode == Mode::FOUNTAIN) {
+
+		switch (parts.mode)
+		{
+		case Mode::FOUNTAIN:
 			parts.originalSpeed = parts.FountainOriginalSpeed;
-		}
-		else {
+			break;
+		case Mode::CASCADE_FACES:
 			switch (parts.axis)
 			{
 			case CascadeAxis::X_LEFT:
@@ -486,6 +491,10 @@ void GUI() {
 				parts.originalSpeed = parts.CascadeBZOriginalSpeed;
 				break;
 			}
+			break;
+		case Mode::CASCADE_POINTS:
+			parts.originalSpeed = parts.FountainOriginalSpeed;
+			break;
 		}
 	}
 	ImGui::SliderFloat("Overture", &parts.overture,0,1,"%.2f", .5f);
