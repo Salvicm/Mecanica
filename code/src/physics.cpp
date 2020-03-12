@@ -91,7 +91,7 @@ glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sp
 
 struct Particles {
 	std::vector<Spheres> spheres = std::vector<Spheres>(1, Spheres{ 2.5f, {0, 2.5f, -0} });
-
+	std::vector<glm::vec4> planes; 
 #pragma region BasicParticlesData
 	Mode mode = Mode::CASCADE_FACES; // UI  --> El selector entre fuente y cascada
 	CascadeAxis axis = CascadeAxis::X_RIGHT; // UI --> El selector entre ejes de la cascada
@@ -124,6 +124,7 @@ struct Particles {
 	int maxParticles = emissionRate * originalLifetime; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays dinámicos y llamar a InitParticles
 	float maxVisible = 0;
 	bool hasStarted = false;
+	bool planesInitialized = false;
 #pragma endregion
 	void SetMaxParticles(int n) {
 		maxParticles = n;
@@ -131,11 +132,30 @@ struct Particles {
 #pragma region ParticleUpdates
 	void InitParticles() {
 		srand(time(NULL));
-#pragma region sphereInit
+#pragma region spherePlanesInit
 		Sphere::setupSphere(spheres[0].position, spheres[0].radius);
+		if (!planesInitialized) {
+			planes.push_back(getRectFormula(
+				// Basandonos en los indices del cubo 
+				{ Box::cubeVerts[4 * 3], Box::cubeVerts[4 * 3 + 1], Box::cubeVerts[4 * 3 + 2] },
+				{ Box::cubeVerts[5 * 3], Box::cubeVerts[5 * 3 + 1], Box::cubeVerts[5 * 3 + 2] },
+				{ Box::cubeVerts[6 * 3], Box::cubeVerts[6 * 3 + 1], Box::cubeVerts[6 * 3 + 2] },
+				{ Box::cubeVerts[7 * 3], Box::cubeVerts[7 * 3 + 1], Box::cubeVerts[7 * 3 + 2] }));
+			for (int j = 0; j < 20; j += 4) {
+				planes.push_back(getRectFormula(
+					// Basandonos en los indices del cubo 
+					{ Box::cubeVerts[Box::cubeIdx[j] * 3], Box::cubeVerts[Box::cubeIdx[j] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j] * 3 + 2] },
+					{ Box::cubeVerts[Box::cubeIdx[j + 1] * 3], Box::cubeVerts[Box::cubeIdx[j + 1] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 1] * 3 + 2] },
+					{ Box::cubeVerts[Box::cubeIdx[j + 2] * 3], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 2] },
+					{ Box::cubeVerts[Box::cubeIdx[j + 3] * 3], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 2] }));
+			}
+			std::cout << planes.size();
+			planesInitialized = true;
+		}
+
 #pragma endregion
 
-	
+		
 
 
 		positions = new glm::vec3[maxParticles];
@@ -283,45 +303,29 @@ struct Particles {
 		}
 	}
 	void UpdateParticle(int i, float dt) {
-		glm::vec4 plano;
 		if (i < maxVisible) {
 			primaPositions[i] = eulerSolver(positions[i], speeds[i], dt);
 			primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 
-
-			plano = getRectFormula(
-				// Basandonos en los indices del cubo 
-				{ Box::cubeVerts[4 * 3], Box::cubeVerts[4 * 3 + 1], Box::cubeVerts[4 * 3 + 2] },
-				{ Box::cubeVerts[5 * 3], Box::cubeVerts[5 * 3 + 1], Box::cubeVerts[5 * 3 + 2] },
-				{ Box::cubeVerts[6 * 3], Box::cubeVerts[6 * 3 + 1], Box::cubeVerts[6 * 3 + 2] },
-				{ Box::cubeVerts[7 * 3], Box::cubeVerts[7 * 3 + 1], Box::cubeVerts[7 * 3 + 2] });
-			if (checkWithPlane(positions[i], primaPositions[i], plano)) {
-				primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
-				primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
-			}
-
-			for (int j = 0; j < 20; j += 4) {
-				plano = getRectFormula(
-					// Basandonos en los indices del cubo 
-					{ Box::cubeVerts[Box::cubeIdx[j] * 3], Box::cubeVerts[Box::cubeIdx[j] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j] * 3 + 2] },
-					{ Box::cubeVerts[Box::cubeIdx[j + 1] * 3], Box::cubeVerts[Box::cubeIdx[j + 1] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 1] * 3 + 2] },
-					{ Box::cubeVerts[Box::cubeIdx[j + 2] * 3], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 2] * 3 + 2] },
-					{ Box::cubeVerts[Box::cubeIdx[j + 3] * 3], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 1], Box::cubeVerts[Box::cubeIdx[j + 3] * 3 + 2] });
-				if (checkWithPlane(positions[i], primaPositions[i], plano)) {
-					primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
-					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
+			for (auto it = planes.begin(); it < planes.end(); it++)
+			{
+				if (checkWithPlane(positions[i], primaPositions[i], *it)) {
+					primaPositions[i] = fixPos(positions[i], primaPositions[i], *it);
+					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], *it);
 				}
 			}
+		
 			extern bool renderSphere;
-			if(renderSphere)
+			if (renderSphere) {
 				for (auto it = spheres.begin(); it < spheres.end(); it++)
 				{
 					if (CheckCollisionWithSphere(*it, primaPositions[i])) {
-						plano = getPlaneFromSphere(positions[i], primaPositions[i], *it);
+						glm::vec4 plano = getPlaneFromSphere(positions[i], primaPositions[i], *it);
 						primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
 						primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
 					}
 				}
+			}
 			speeds[i] = primaSpeeds[i];
 			positions[i] = primaPositions[i];
 
