@@ -39,6 +39,11 @@ namespace Sphere {
 	extern void updateSphere(glm::vec3 pos, float radius);
 
 }
+namespace Capsule {
+	extern void setupCapsule(glm::vec3 posA, glm::vec3 posB, float radius);
+	extern void cleanupCapsule();
+	extern void updateCapsule(glm::vec3 posA, glm::vec3 posB, float radius);
+}
 namespace LilSpheres {
 	extern void updateParticles(int startIdx, int count, float* array_data);
 	extern int particleCount;
@@ -91,6 +96,9 @@ glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sp
 
 struct Particles {
 	std::vector<Spheres> spheres = std::vector<Spheres>(1, Spheres{ 2.5f, {0, 2.5f, -0} });
+	glm::vec3 capsule1 = {0,0,-1};
+	glm::vec3 capsule2 = {0,0,1};
+	float capsuleRadius = 0.5f;
 
 #pragma region BasicParticlesData
 	Mode mode = Mode::CASCADE_FACES; // UI  --> El selector entre fuente y cascada
@@ -133,6 +141,7 @@ struct Particles {
 		srand(time(NULL));
 #pragma region sphereInit
 		Sphere::setupSphere(spheres[0].position, spheres[0].radius);
+		Capsule::setupCapsule(capsule1, capsule2, capsuleRadius);
 #pragma endregion
 
 	
@@ -403,6 +412,7 @@ struct Particles {
 	}
 	void CleanParticles() {
 		Sphere::cleanupSphere();
+		Capsule::cleanupCapsule();
 		delete[] positions;
 		delete[] speeds;
 		delete[] lifeTime;
@@ -548,7 +558,16 @@ void GUI() {
 			Sphere::updateSphere(parts.spheres[i].position, parts.spheres[i].radius);
 		}
 	ImGui::NewLine();
+	extern bool renderCapsule;
 	ImGui::Text("Capsule:");
+	ImGui::Checkbox("Enable ", &renderCapsule);
+	if (renderCapsule) {
+		ImGui::Spacing();
+		ImGui::SliderFloat("Radius ", &parts.capsuleRadius, 0, 10);
+		ImGui::DragFloat3("Position 1", &parts.capsule1[0], .01f);
+		ImGui::DragFloat3("Position 2", &parts.capsule2[0], .01f);
+		Capsule::updateCapsule(parts.capsule1, parts.capsule2, parts.capsuleRadius);
+	}
 	ImGui::End();
 }
 
