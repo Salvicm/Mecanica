@@ -5,6 +5,7 @@
 #include <glm\gtc\type_ptr.hpp>
 #include <GL\glew.h>
 #include <glm\gtc\matrix_transform.hpp>
+#include <glm/gtx/closest_point.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -91,15 +92,19 @@ struct Spheres {
 	Spheres() : radius(2.0f), position({ 0,0,0 }) {}
 	Spheres(float rad, glm::vec3 pos) : radius(rad), position(pos){}
 };
+struct Capsules {
+	float radius;
+	glm::vec3 position1;
+	glm::vec3 position2;
+};
 bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos);
+bool CheckCollisionWithCapsule(Capsules capsule, glm::vec3 primaPos);
 glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere);
+Spheres getSphereFromCapsule(glm::vec3 originalPos, glm::vec3 endPos, Capsules capsule);
 
 struct Particles {
-	std::vector<Spheres> spheres = std::vector<Spheres>(1, Spheres{ 2.5f, {0, 2.5f, -0} });
-	glm::vec3 capsule1 = {0,0,-1};
-	glm::vec3 capsule2 = {0,0,1};
-	float capsuleRadius = 0.5f;
-
+	Spheres sphere = { 2.5f, {0, 2.5f, -0} };
+	Capsules capsule = { 2, {0,0,-2} , {0,0,2} };
 #pragma region BasicParticlesData
 	Mode mode = Mode::CASCADE_FACES; // UI  --> El selector entre fuente y cascada
 	CascadeAxis axis = CascadeAxis::X_RIGHT; // UI --> El selector entre ejes de la cascada
@@ -140,8 +145,8 @@ struct Particles {
 	void InitParticles() {
 		srand(time(NULL));
 #pragma region sphereInit
-		Sphere::setupSphere(spheres[0].position, spheres[0].radius);
-		Capsule::setupCapsule(capsule1, capsule2, capsuleRadius);
+		Sphere::setupSphere(sphere.position, sphere.radius);
+		Capsule::setupCapsule(capsule.position1, capsule.position2, capsule.radius);
 #pragma endregion
 
 	
@@ -323,13 +328,19 @@ struct Particles {
 			}
 			extern bool renderSphere;
 			if(renderSphere)
-				for (auto it = spheres.begin(); it < spheres.end(); it++)
-				{
-					if (CheckCollisionWithSphere(*it, primaPositions[i])) {
-						plano = getPlaneFromSphere(positions[i], primaPositions[i], *it);
-						primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
-						primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
-					}
+				if (CheckCollisionWithSphere(sphere, primaPositions[i])) {
+					plano = getPlaneFromSphere(positions[i], primaPositions[i], sphere);
+					primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
+					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
+				}
+			speeds[i] = primaSpeeds[i];
+			positions[i] = primaPositions[i];
+			extern bool renderCapsule;
+			if(renderCapsule)
+				if (CheckCollisionWithCapsule(capsule, primaPositions[i])) {
+					plano = getPlaneFromSphere(positions[i], primaPositions[i], getSphereFromCapsule(positions[i], primaPositions[i], capsule));
+					primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
+					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
 				}
 			speeds[i] = primaSpeeds[i];
 			positions[i] = primaPositions[i];
@@ -549,24 +560,22 @@ void GUI() {
 	//Sphere::cleanupSphere();
 	extern bool renderSphere;
 	ImGui::Checkbox("Enable", &renderSphere);
-	if(renderSphere)
-		for (size_t i = 0; i < parts.spheres.size(); i++)
-		{
-			ImGui::Spacing();
-			ImGui::SliderFloat("Radius", &parts.spheres[i].radius, 0, 10);
-			ImGui::DragFloat3("Position ", &parts.spheres[i].position[0], .01f);
-			Sphere::updateSphere(parts.spheres[i].position, parts.spheres[i].radius);
-		}
+	if (renderSphere) {
+		ImGui::Spacing();
+		ImGui::SliderFloat("Radius", &parts.sphere.radius, 0, 10);
+		ImGui::DragFloat3("Position ", &parts.sphere.position[0], .01f);
+		Sphere::updateSphere(parts.sphere.position, parts.sphere.radius);
+	}
 	ImGui::NewLine();
 	extern bool renderCapsule;
 	ImGui::Text("Capsule:");
 	ImGui::Checkbox("Enable ", &renderCapsule);
 	if (renderCapsule) {
 		ImGui::Spacing();
-		ImGui::SliderFloat("Radius ", &parts.capsuleRadius, 0, 10);
-		ImGui::DragFloat3("Position 1", &parts.capsule1[0], .01f);
-		ImGui::DragFloat3("Position 2", &parts.capsule2[0], .01f);
-		Capsule::updateCapsule(parts.capsule1, parts.capsule2, parts.capsuleRadius);
+		ImGui::SliderFloat("Radius ", &parts.capsule.radius, 0, 10);
+		ImGui::DragFloat3("Position 1", &parts.capsule.position1[0], .01f);
+		ImGui::DragFloat3("Position 2", &parts.capsule.position2[0], .01f);
+		Capsule::updateCapsule(parts.capsule.position1, parts.capsule.position2, parts.capsule.radius);
 	}
 	ImGui::End();
 }
@@ -611,6 +620,9 @@ glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d)
 bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos) {
 	return glm::distance(sphere.position, primaPos) <= sphere.radius;
 }
+bool CheckCollisionWithCapsule(Capsules capsule, glm::vec3 primaPos) {
+	return glm::distance(glm::closestPointOnLine(primaPos, capsule.position1, capsule.position2), primaPos) <= capsule.radius;
+}
 
 glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere) {
 
@@ -643,4 +655,18 @@ glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sp
 	glm::vec3 normalPlano = glm::normalize(impact-sphere.position);
 	float D = (normalPlano.x * impact.x * -1) + (normalPlano.y * impact.y * -1) + (normalPlano.z * impact.z * -1);
 	return { normalPlano.x, normalPlano.y, normalPlano.z, D};
+}
+
+Spheres getSphereFromCapsule(glm::vec3 originalPos, glm::vec3 endPos, Capsules capsule) {
+	//ray: P(t) = P + V * t
+	//cyl : (((P(t) - O) x D) ^ 2 = r ^ 2
+
+	//O is point on cylinder core, D is direction of cylinder(normalised), r is radius.
+
+	//then you combine the two equations and you get a second order equation you solve for (t), composed of cross productsand dot products.
+
+	//with end points B and A...
+
+	//(((P(t) - A) x(B - A)) ^ 2 = r ^ 2 * ((B - A) . (B - A))
+	return { capsule.radius, glm::closestPointOnLine(endPos, capsule.position1, capsule.position2) };
 }
