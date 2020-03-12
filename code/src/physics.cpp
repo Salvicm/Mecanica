@@ -32,6 +32,7 @@ static const char* CascadeAxisString[]{ "X left", "X right", "Z front", "Z back"
 
 //Function declarations
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
+glm::vec3 getPerpVect(glm::vec3 dir, glm::vec3 helper);
 
 namespace Sphere {
 	extern void setupSphere(glm::vec3 pos, float radius);
@@ -121,12 +122,14 @@ struct Particles {
 	const glm::vec3 CascadeFZOriginalSpeed = { 0,0,2 };
 	const glm::vec3 CascadeBZOriginalSpeed = { 0,0,-2 };
 
-	glm::vec3 CascadePointA;
-	glm::vec3 CascadePointB;
+	glm::vec3 CascadePointA = {-5,0,-5};
+	glm::vec3 CascadePointB = { 5,10,5 };
+	float cascadeAngle = 0.0f;
+	float cascadeStrength = 5.0f;
 	float overture = 0.5f;
 	float originalLifetime = 2.5f; // UI --> >=0.5
 	// Physics parameters
-	// UI --> El minimo y el m�ximo de la cantidad de part�culas
+	// UI --> El minimo y el m�ximo de la cantidad de partículas
 	float min = 0.0f; 
 	float max = 1000.0f;
 	float emissionRate = 100;
@@ -173,16 +176,9 @@ struct Particles {
 		primaSpeeds = new glm::vec3[maxParticles];
 		lifeTime = new float[maxParticles];
 		currentLifeTime = new float[maxParticles];
-		LilSpheres::particleCount = maxParticles;
+		LilSpheres::particleCount = 0;
 		extern bool renderParticles;
 		renderParticles = true;
-
-		for (int i = 0; i < maxParticles; i++)
-		{
-			glm::vec3 originPosition = { 0,0,0 };
-			primaPositions[i] = positions[i] = originPosition;
-		}
-		LilSpheres::updateParticles(0, maxParticles, &positions[0].x);
 
 		for (int i = 0; i < maxParticles; i++)
 		{
@@ -251,7 +247,16 @@ struct Particles {
 				primaPositions[i] = positions[i] = originPosition;
 				break;
 			case Mode::CASCADE_POINTS:
-				// TODO
+			{
+				glm::vec3 director = CascadePointA - CascadePointB;
+				float alpha = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * glm::length(director));
+				director = glm::normalize(director);
+				originPosition = { CascadePointB + alpha * director };
+				primaPositions[i] = positions[i] = originPosition;
+				glm::vec3 helper = getPerpVect(director, glm::normalize(glm::vec3{ sin(cascadeAngle),cos(cascadeAngle),0 }));
+				primaSpeeds[i] = speeds[i] = helper * cascadeStrength;
+
+			}
 				break;
 			default:
 				break;
@@ -259,13 +264,15 @@ struct Particles {
 		}
 	}
 	void UpdateParticles(float dt) {
-		// A cada frame inicializar X part�culas 
+		// A cada frame inicializar X partículas 
 			// Si se superan, no hacer nada
 		if (maxVisible < maxParticles && hasStarted) {
 			maxVisible += emissionRate * dt; 
 		}
 		if (maxVisible > maxParticles)
 			maxVisible = maxParticles;
+		LilSpheres::particleCount = maxVisible;
+
 		// Mantener un MaxVisible --> Esto afecta a la actualizacion tambien
 
 		hasStarted = true;
@@ -307,7 +314,7 @@ struct Particles {
 	}
 	void UpdateParticlesSection(const int & from,const int & to,const float & dt) {
 		for (int i = from; i < to; i++)
-		{
+		{ 
 			UpdateParticle(i, dt);
 		}
 	}
@@ -406,7 +413,15 @@ struct Particles {
 
 					break;
 				case Mode::CASCADE_POINTS:
-					// TODO
+				{
+					glm::vec3 director = CascadePointA - CascadePointB;
+					float alpha = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * glm::length(director));
+					director = glm::normalize(director);
+					originPosition = { CascadePointB + alpha * director };
+					primaPositions[i] = positions[i] = originPosition;
+					glm::vec3 helper = getPerpVect(director, glm::normalize(glm::vec3{ sin(cascadeAngle),cos(cascadeAngle),0 }));
+					primaSpeeds[i] = speeds[i] = helper * cascadeStrength;
+				}
 					break;
 				default:
 					break;
@@ -465,23 +480,32 @@ void GUI() {
 	CascadeAxis lastAxis = parts.axis;
 	ImGui::Combo("Type", (int*)(&parts.mode), ModeString, 3);
 
+	ImGui::Spacing();
 	switch (parts.mode)
 	{
 	case Mode::FOUNTAIN:
-		ImGui::Spacing();
 		ImGui::DragFloat3("Position", &parts.fountainOrigin[0], .01f);
-		ImGui::Spacing();
+		
 		break;
 	case Mode::CASCADE_FACES:
-		ImGui::Spacing();
 		ImGui::Combo("Position", (int*)(&parts.axis), CascadeAxisString, 4);
 		ImGui::SliderFloat("Distance from axis", &parts.distFromAxis, 0, 5);
 		ImGui::SliderFloat("Height", &parts.cascadeHeight, 0, 9.999f);
-		ImGui::Spacing();
 		break;
 	case Mode::CASCADE_POINTS:
+		ImGui::DragFloat3(("Cascade Point A"), &parts.CascadePointA[0], .01f);
+		ImGui::DragFloat3(("Cascade Point B"), &parts.CascadePointB[0], .01f);
+		parts.CascadePointA.x = glm::clamp(parts.CascadePointA.x, -5.f, 5.f);
+		parts.CascadePointA.z = glm::clamp(parts.CascadePointA.z, -5.f, 5.f);
+		parts.CascadePointB.x = glm::clamp(parts.CascadePointB.x, -5.f, 5.f);
+		parts.CascadePointB.z = glm::clamp(parts.CascadePointB.z, -5.f, 5.f);
+		parts.CascadePointA.y = glm::clamp(parts.CascadePointA.y, 0.f, 9.99f);
+		parts.CascadePointB.y = glm::clamp(parts.CascadePointB.y, 0.f, 9.99f);
+		ImGui::SliderFloat("Emition angle", &parts.cascadeAngle, 0, 360);
+		ImGui::SliderFloat("Emition force", &parts.cascadeStrength, 0, 10);
 		break;
 	}
+	ImGui::Spacing();
 	if (lastMode != parts.mode || lastAxis != parts.axis) {
 
 		switch (parts.mode)
@@ -508,6 +532,7 @@ void GUI() {
 			break;
 		case Mode::CASCADE_POINTS:
 			parts.originalSpeed = parts.FountainOriginalSpeed;
+			// Calcular el speed basandote en el ángulo
 			break;
 		}
 	}
@@ -544,13 +569,7 @@ void GUI() {
 	ImGui::Text("Objects:");
 	ImGui::NewLine();
 	ImGui::Text("Sphere:");
-	//if (ImGui::Button("+")) {
-	//	parts.spheres.push_back(Spheres{ 2.5f, {0, 2.5f, -0} });
-	//}
-	//if (ImGui::Button("-")) {
-	//	parts.spheres.pop_back();
-	//}
-	//Sphere::cleanupSphere();
+
 	extern bool renderSphere;
 	ImGui::Checkbox("Enable", &renderSphere);
 	if(renderSphere)
@@ -585,6 +604,23 @@ void PhysicsUpdate(float dt) {
 
 void PhysicsCleanup() {
 	parts.CleanParticles();
+}
+
+glm::vec3 getPerpVect(glm::vec3 dir, glm::vec3 helper) {
+	float A, B, C;
+	A = B = C = 0.0f;
+	// Teniendo los puntos, obtener dos vectores para el plano
+	// Sacar la normal
+	/*
+	|i,  j,	 k | <-- Obtener el vector perpendicular a otros dos vectores
+	|Ax, Ay, Az|
+	|Bx, By, Bz|= (a)-(b)+(c) = 0
+	*/
+	A = (dir.y * helper.z) - (helper.y * dir.z);
+	B = (dir.x * helper.z) - (helper.x * dir.z);
+	C = (dir.x * helper.y) - (helper.x * dir.y);
+
+	return { A, -B, C };
 }
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d) {
 	float A, B, C, D ;
@@ -621,11 +657,11 @@ glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sp
 	// Vector director
 		// f(x) = originalPos + lambda * Director;  
 	glm::vec3 director = endPos - originalPos; 
-	/* 
-	|| Pcol	 - C ||^2 = r^2 --> PCol = OP + lV
-	|| OP +lV - C ||^2 = r^2
-	|| lV + (OP-C) ||^2 ...
-	|| lV + CP || ^2 = r^2
+	/*  // NO BORRAR --> Explicacion de como funciona el calculo de la esfera
+	|| Pcol		-	C		|| ^2 = r^2 --> PCol = OP + lV
+	||OP + lV	-	C		|| ^2 = r^2
+	||	lV		+	(OP-C)	|| ^2 ...
+	||	lV		+	CP		|| ^2 = r^2
 	dot(lv+CP, lv+CP) = r^2 
 	dot(lv, lv+CP)+dot(CP,(lV+CP)) = r2;
 	l^2 = dot(v,v) 
