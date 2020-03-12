@@ -39,6 +39,11 @@ namespace Sphere {
 	extern void updateSphere(glm::vec3 pos, float radius);
 
 }
+namespace Capsule {
+	extern void setupCapsule(glm::vec3 posA, glm::vec3 posB, float radius);
+	extern void cleanupCapsule();
+	extern void updateCapsule(glm::vec3 posA, glm::vec3 posB, float radius);
+}
 namespace LilSpheres {
 	extern void updateParticles(int startIdx, int count, float* array_data);
 	extern int particleCount;
@@ -68,7 +73,7 @@ bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos,const gl
 glm::vec3 fixPos(const glm::vec3 originalPos,const glm::vec3 endPos,const glm::vec4 plano) {
 	glm::vec3 newPos = { 0,0,0 };
 	glm::vec3 normalPlano = { plano.x, plano.y, plano.z };
-	newPos = (endPos - (2 * (glm::dot(endPos, normalPlano) + plano.w)) * normalPlano); // Podríamos usar glm::reflect
+	newPos = (endPos - (2 * (glm::dot(endPos, normalPlano) + plano.w)) * normalPlano); // Podrï¿½amos usar glm::reflect
 	return newPos;
 
 }
@@ -92,13 +97,17 @@ glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sp
 struct Particles {
 	std::vector<Spheres> spheres = std::vector<Spheres>(1, Spheres{ 2.5f, {0, 2.5f, -0} });
 	std::vector<glm::vec4> planes;
+	glm::vec3 capsule1 = {0,0,-1};
+	glm::vec3 capsule2 = {0,0,1};
+	float capsuleRadius = 0.5f;
+
 #pragma region BasicParticlesData
 	Mode mode = Mode::CASCADE_FACES; // UI  --> El selector entre fuente y cascada
 	CascadeAxis axis = CascadeAxis::X_RIGHT; // UI --> El selector entre ejes de la cascada
 	float distFromAxis = 2.0f; // UI --> 0 - 5 --> Distancia a la pared en cascada
 	float cascadeHeight = 5.0f; // UI --> 0 - 9.99 --> Altura de la cascada
 	glm::vec3 fountainOrigin = { 0.f, 5.0f,0.f }; // UI --> {(-5,5), (0,9'99), (-5,5)} --> Posicion de origen de la fuente
-	glm::vec3 acceleration = { 0, -9.81f, 0 }; // UI --> Aceleracion de todas las partículas
+	glm::vec3 acceleration = { 0, -9.81f, 0 }; // UI --> Aceleracion de todas las partï¿½culas
 	glm::vec3 *positions;
 	glm::vec3 *primaPositions;
 	glm::vec3 *speeds;
@@ -117,11 +126,11 @@ struct Particles {
 	float overture = 0.5f;
 	float originalLifetime = 2.5f; // UI --> >=0.5
 	// Physics parameters
-	// UI --> El minimo y el máximo de la cantidad de partículas
+	// UI --> El minimo y el mï¿½ximo de la cantidad de partï¿½culas
 	float min = 0.0f; 
 	float max = 1000.0f;
 	float emissionRate = 100;
-	int maxParticles = emissionRate * originalLifetime; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays dinámicos y llamar a InitParticles
+	int maxParticles = emissionRate * originalLifetime; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays dinï¿½micos y llamar a InitParticles
 	float maxVisible = 0;
 	bool hasStarted = false;
 #pragma endregion
@@ -133,6 +142,7 @@ struct Particles {
 		srand(time(NULL));
 #pragma region sphereInit
 		Sphere::setupSphere(spheres[0].position, spheres[0].radius);
+		Capsule::setupCapsule(capsule1, capsule2, capsuleRadius);
 		if (planes.size() == 0) {
 			planes.push_back(getRectFormula(
 				// Basandonos en los indices del cubo 
@@ -249,7 +259,7 @@ struct Particles {
 		}
 	}
 	void UpdateParticles(float dt) {
-		// A cada frame inicializar X partículas 
+		// A cada frame inicializar X partï¿½culas 
 			// Si se superan, no hacer nada
 		if (maxVisible < maxParticles && hasStarted) {
 			maxVisible += emissionRate * dt; 
@@ -406,6 +416,7 @@ struct Particles {
 	}
 	void CleanParticles() {
 		Sphere::cleanupSphere();
+		Capsule::cleanupCapsule();
 		delete[] positions;
 		delete[] speeds;
 		delete[] lifeTime;
@@ -551,7 +562,16 @@ void GUI() {
 			Sphere::updateSphere(parts.spheres[i].position, parts.spheres[i].radius);
 		}
 	ImGui::NewLine();
+	extern bool renderCapsule;
 	ImGui::Text("Capsule:");
+	ImGui::Checkbox("Enable ", &renderCapsule);
+	if (renderCapsule) {
+		ImGui::Spacing();
+		ImGui::SliderFloat("Radius ", &parts.capsuleRadius, 0, 10);
+		ImGui::DragFloat3("Position 1", &parts.capsule1[0], .01f);
+		ImGui::DragFloat3("Position 2", &parts.capsule2[0], .01f);
+		Capsule::updateCapsule(parts.capsule1, parts.capsule2, parts.capsuleRadius);
+	}
 	ImGui::End();
 }
 
@@ -589,7 +609,7 @@ glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d)
 	// Ax + By + Cz + D = 0;
 	// D = -Ax - By - Cz
 	D = (Normal.x * Punto.x * -1) + (Normal.y * Punto.y * -1) + (Normal.z * Punto.z * -1);
-	return{ Normal.x,Normal.y, Normal.z,D }; // Esto me retorna la fórmula general del plano, ya normalizado
+	return{ Normal.x,Normal.y, Normal.z,D }; // Esto me retorna la fï¿½rmula general del plano, ya normalizado
 	
 }
 bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos) {
