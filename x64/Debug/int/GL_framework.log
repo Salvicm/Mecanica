@@ -1,13 +1,4 @@
-﻿  physics.cpp
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(122,34): warning C4244: 'inicializando': conversión de 'float' a 'int'; posible pérdida de datos
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(131,13): warning C4244: 'argumento': conversión de 'time_t' a 'unsigned int'; posible pérdida de datos
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(176,42): warning C4244: '=': conversión de 'int' a 'float'; posible pérdida de datos
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(183,17): warning C4244: '=': conversión de 'int' a 'float'; posible pérdida de datos
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(184,31): warning C4244: '=': conversión de 'float' a 'int'; posible pérdida de datos
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(201,27): warning C4244: 'inicializando': conversión de 'float' a 'int'; posible pérdida de datos
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(220,30): warning C4244: 'argumento': conversión de 'float' a 'const int'; posible pérdida de datos
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(223,34): warning C4244: 'argumento': conversión de 'float' a 'int'; posible pérdida de datos
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(472,47): warning C4244: '=': conversión de 'float' a 'int'; posible pérdida de datos
+﻿  main.cpp
   GL_framework.vcxproj -> C:\Users\Salvi\Documents\Visual\Mecanica\x64\Debug\GL_framework.exe
   0 archivo(s) copiado(s)
   0 archivo(s) copiado(s)

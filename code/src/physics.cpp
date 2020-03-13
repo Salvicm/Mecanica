@@ -26,7 +26,7 @@ ExecutionMode exMode = ExecutionMode::PARALLEL;
 #if ppl == 1
 static const char* ExecutionModeString[]{ "Sequential", "Parallel", "Multithreading (EXPERIMENTAL!)" };
 #else
-static const char* ExecutionModeString[]{ "Sequential", "Parallel (c++17 not aviable)", "Multithreading (EXPERIMENTAL!)" };
+static const char* ExecutionModeString[]{ "Sequential", "Parallel (c++17 not available)", "Multithreading (EXPERIMENTAL!)" };
 #endif
 enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
 static const char* CascadeAxisString[]{ "X left", "X right", "Z front", "Z back" };
@@ -465,7 +465,7 @@ void GUI() {
 	ImGui::DragFloat3("Start Acceleration", &parts.originalSpeed[0], .01f);
 	float lastLife = parts.originalLifetime;
 	float lastEmission = parts.emissionRate;
-	ImGui::SliderFloat("Life", &parts.originalLifetime,.5f,10, "%.2f", 2);
+	ImGui::SliderFloat("Life", &parts.originalLifetime,1, 10, "%.2f", 2);
 	ImGui::SliderFloat("Emission Rate", &parts.emissionRate,1,1000, "%.2f", 2);
 	if (parts.originalLifetime != lastLife || parts.emissionRate != lastEmission) {
 		parts.maxParticles = parts.originalLifetime * parts.emissionRate;
