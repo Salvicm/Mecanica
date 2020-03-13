@@ -100,7 +100,7 @@ struct Capsules {
 bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos);
 bool CheckCollisionWithCapsule(Capsules capsule, glm::vec3 primaPos);
 glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere);
-Spheres getSphereFromCapsule(glm::vec3 originalPos, glm::vec3 endPos, Capsules capsule);
+glm::vec4 getPlaneFromCapsule(glm::vec3 originalPos, glm::vec3 endPos, Capsules capsule);
 
 struct Particles {
 	Spheres sphere = { 2.5f, {0, 2.5f, -0} };
@@ -338,7 +338,7 @@ struct Particles {
 			extern bool renderCapsule;
 			if(renderCapsule)
 				if (CheckCollisionWithCapsule(capsule, primaPositions[i])) {
-					plano = getPlaneFromSphere(positions[i], primaPositions[i], getSphereFromCapsule(positions[i], primaPositions[i], capsule));
+					plano = getPlaneFromCapsule(positions[i], primaPositions[i], capsule);
 					primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
 					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
 				}
@@ -657,16 +657,16 @@ glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sp
 	return { normalPlano.x, normalPlano.y, normalPlano.z, D};
 }
 
-Spheres getSphereFromCapsule(glm::vec3 originalPos, glm::vec3 endPos, Capsules capsule) {
-	//ray: P(t) = P + V * t
-	//cyl : (((P(t) - O) x D) ^ 2 = r ^ 2
-
-	//O is point on cylinder core, D is direction of cylinder(normalised), r is radius.
-
-	//then you combine the two equations and you get a second order equation you solve for (t), composed of cross productsand dot products.
-
-	//with end points B and A...
-
-	//(((P(t) - A) x(B - A)) ^ 2 = r ^ 2 * ((B - A) . (B - A))
-	return { capsule.radius, glm::closestPointOnLine(endPos, capsule.position1, capsule.position2) };
+glm::vec4 getPlaneFromCapsule(glm::vec3 originalPos, glm::vec3 endPos, Capsules capsule) {
+	glm::vec3 pos = glm::closestPointOnLine(endPos, capsule.position1, capsule.position2);
+	glm::vec3 pos1 = glm::closestPointOnLine(originalPos, capsule.position1, capsule.position2);
+	if (pos == pos1) {
+		if (pos == capsule.position1) {
+			return getPlaneFromSphere(originalPos, endPos, { capsule.radius, capsule.position1 });
+		}
+		if (pos == capsule.position2) {
+			return getPlaneFromSphere(originalPos, endPos, { capsule.radius, capsule.position2 });
+		}
+	}
+	return getPlaneFromSphere(originalPos, endPos, { capsule.radius, glm::closestPointOnLine(endPos, capsule.position1, capsule.position2) });
 }
