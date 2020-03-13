@@ -32,7 +32,8 @@ static const char* CascadeAxisString[]{ "X left", "X right", "Z front", "Z back"
 
 //Function declarations
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
-glm::vec3 getPerpVect(glm::vec3 dir, glm::vec3 helper);
+glm::vec3 GetCascadeRotation(glm::vec3 dir, float angle);
+glm::vec3 getPerpVector(glm::vec3 _a, glm::vec3 _b);
 
 namespace Sphere {
 	extern void setupSphere(glm::vec3 pos, float radius);
@@ -182,85 +183,8 @@ struct Particles {
 
 		for (int i = 0; i < maxParticles; i++)
 		{
-
-			float tmpX = originalSpeed.x;
-			float tmpY = originalSpeed.y;
-			float tmpZ = originalSpeed.z;
-			primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-			lifeTime[i] = originalLifetime;
-			currentLifeTime[i] = 0;
-			glm::vec3 originPosition = { 0,0,0 };
-			switch (mode)
-			{
-			case Mode::FOUNTAIN:
-				primaPositions[i] = positions[i] = fountainOrigin;
-				if (overture >= 0.01f) {
-					tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
-					tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
-					tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
-				}
-				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-				break;
-			case Mode::CASCADE_FACES:
-				
-				switch (axis)
-				{
-				case CascadeAxis::X_LEFT:
-					originPosition = {-5.f + distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) -5 };
-					if (overture >= 0.01f) {
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-					}
-					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-					break;
-				case CascadeAxis::X_RIGHT:
-					originPosition = {+5.f - distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) -5 };
-					if (overture >= 0.01f) {
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-					}
-					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-					break;
-				case CascadeAxis::Z_FRONT:
-					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
-					if (overture >= 0.01f) {
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-					}
-					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-					break;
-				case CascadeAxis::Z_BACK:
-					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
-					if (overture >= 0.01f) {
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-					}
-					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-					break;
-				default:
-					break;
-				}
-				primaPositions[i] = positions[i] = originPosition;
-				break;
-			case Mode::CASCADE_POINTS:
-			{
-				glm::vec3 director = CascadePointA - CascadePointB;
-				float alpha = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * glm::length(director));
-				director = glm::normalize(director);
-				originPosition = { CascadePointB + alpha * director };
-				primaPositions[i] = positions[i] = originPosition;
-				glm::vec3 helper = getPerpVect(director, glm::normalize(glm::vec3{ sin(cascadeAngle),cos(cascadeAngle),0 }));
-				primaSpeeds[i] = speeds[i] = helper * cascadeStrength;
-
-			}
-				break;
-			default:
-				break;
-			}
+			
+			SpawnParticle(i);
 		}
 	}
 	void UpdateParticles(float dt) {
@@ -330,7 +254,7 @@ struct Particles {
 					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], planes[it]);
 				}
 			}
-
+			
 			
 			extern bool renderSphere;
 			if(renderSphere)
@@ -347,87 +271,91 @@ struct Particles {
 
 			currentLifeTime[i] += dt;
 			if (currentLifeTime[i] >= lifeTime[i]) {
-				float x = -5 + min + (float)rand() / (RAND_MAX / (max - min));
-				float z = -5 + min + (float)rand() / (RAND_MAX / (max - min));
-				currentLifeTime[i] = 0;
-				glm::vec3 originPosition;
-				float tmpX = originalSpeed.x;
-				float tmpY = originalSpeed.y;
-				float tmpZ = originalSpeed.z;
-				switch (mode)
+				SpawnParticle(i);
+			}
+		}
+	}
+	void SpawnParticle(int i) {
+		
+			float tmpX = originalSpeed.x;
+			float tmpY = originalSpeed.y;
+			float tmpZ = originalSpeed.z;
+			primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+			lifeTime[i] = originalLifetime;
+			currentLifeTime[i] = 0;
+			glm::vec3 originPosition = { 0,0,0 };
+			switch (mode)
+			{
+			case Mode::FOUNTAIN:
+				primaPositions[i] = positions[i] = fountainOrigin;
+				if (overture >= 0.01f) {
+					tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
+					tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
+					tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
+				}
+				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+				break;
+			case Mode::CASCADE_FACES:
+
+				switch (axis)
 				{
-				case Mode::FOUNTAIN:
-					primaPositions[i] = positions[i] = fountainOrigin;
+				case CascadeAxis::X_LEFT:
+					originPosition = {-5.f + distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) -5 };
 					if (overture >= 0.01f) {
-						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 10 - (overture * 5);
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
-				case Mode::CASCADE_FACES:
-
-					switch (axis)
-					{
-					case CascadeAxis::X_LEFT:
-						originPosition = { -5.f + distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 };
-						if (overture >= 0.01f) {
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						}
-						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-						break;
-					case CascadeAxis::X_RIGHT:
-						originPosition = { +5.f - distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 };
-						if (overture >= 0.01f) {
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						}
-						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-						break;
-					case CascadeAxis::Z_FRONT:
-						originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
-						if (overture >= 0.01f) {
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						}
-						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-						break;
-					case CascadeAxis::Z_BACK:
-						originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
-						if (overture >= 0.01f) {
-							tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-							tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-							tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						}
-						primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
-						break;
-					default:
-						break;
+				case CascadeAxis::X_RIGHT:
+					originPosition = {+5.f - distFromAxis, cascadeHeight, ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) -5 };
+					if (overture >= 0.01f) {
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 					}
-					primaPositions[i] = positions[i] = originPosition;
-
-
+					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
-				case Mode::CASCADE_POINTS:
-				{
-					glm::vec3 director = CascadePointA - CascadePointB;
-					float alpha = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * glm::length(director));
-					director = glm::normalize(director);
-					originPosition = { CascadePointB + alpha * director };
-					primaPositions[i] = positions[i] = originPosition;
-					glm::vec3 helper = getPerpVect(director, glm::normalize(glm::vec3{ sin(cascadeAngle),cos(cascadeAngle),0 }));
-					primaSpeeds[i] = speeds[i] = helper * cascadeStrength;
-				}
+				case CascadeAxis::Z_FRONT:
+					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
+					if (overture >= 0.01f) {
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+					}
+					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
+					break;
+				case CascadeAxis::Z_BACK:
+					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
+					if (overture >= 0.01f) {
+						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
+					}
+					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
 				default:
 					break;
 				}
+				primaPositions[i] = positions[i] = originPosition;
+				break;
+			case Mode::CASCADE_POINTS:
+				{
+				glm::vec3 director = CascadePointA - CascadePointB;
+				float alpha = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * glm::length(director));
+				director = glm::normalize(director);
+				originPosition = { CascadePointB + alpha * director };
+				primaPositions[i] = positions[i] = originPosition;
+				glm::vec3 helper = GetCascadeRotation(director, cascadeAngle);
+				primaSpeeds[i] = speeds[i] = helper * cascadeStrength;
+
+				// Hacer la apertura
+				}
+				break;
+			default:
+				break;
 			}
-		}
 	}
 	void CleanParticles() {
 		Sphere::cleanupSphere();
@@ -606,45 +534,23 @@ void PhysicsCleanup() {
 	parts.CleanParticles();
 }
 
-glm::vec3 getPerpVect(glm::vec3 dir, glm::vec3 helper) {
-	float A, B, C;
-	A = B = C = 0.0f;
-	// Teniendo los puntos, obtener dos vectores para el plano
-	// Sacar la normal
-	/*
-	|i,  j,	 k | <-- Obtener el vector perpendicular a otros dos vectores
-	|Ax, Ay, Az|
-	|Bx, By, Bz|= (a)-(b)+(c) = 0
-	*/
-	A = (dir.y * helper.z) - (helper.y * dir.z);
-	B = (dir.x * helper.z) - (helper.x * dir.z);
-	C = (dir.x * helper.y) - (helper.x * dir.y);
+glm::vec3 GetCascadeRotation(glm::vec3 dir, float angle) {
 
-	return { A, -B, C };
+	glm::vec3 helper = {dir.y * sin(glm::radians(angle)), -dir.x * cos(glm::radians(angle)), 0 }; 	
+	return glm::normalize(getPerpVector(dir, helper));
 }
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d) {
-	float A, B, C, D ;
-	A = B =C =  D = 0.0f;
 	// Teniendo los puntos, obtener dos vectores para el plano
 	glm::vec3 VecA = _b - _a; // Recta A = _a + x*VecA
 	glm::vec3 VecB = _b - _c; // Recta B = _c + x*VecB
 	glm::vec3 Punto = _a;
-	// Sacar la normal
-	/*
-	|i,  j,	 k | <-- Obtener el vector perpendicular a otros dos vectores
-	|Ax, Ay, Az|
-	|Bx, By, Bz|= (a)-(b)+(c) = 0
-	*/
-	A = (VecA.y * VecB.z) - (VecB.y * VecA.z);
-	B = (VecA.x * VecB.z) - (VecB.x * VecA.z);
-	C = (VecA.x * VecB.y) - (VecB.x * VecA.y);
 
-	glm::vec3 Normal = { A, -B, C };
-	// Normalizar vector
+
+	glm::vec3 Normal = getPerpVector(VecA, VecB);
 	Normal = glm::normalize(Normal); // Ahora calcular la D
 	// Ax + By + Cz + D = 0;
 	// D = -Ax - By - Cz
-	D = (Normal.x * Punto.x * -1) + (Normal.y * Punto.y * -1) + (Normal.z * Punto.z * -1);
+	float D = (Normal.x * Punto.x * -1) + (Normal.y * Punto.y * -1) + (Normal.z * Punto.z * -1);
 	return{ Normal.x,Normal.y, Normal.z,D }; // Esto me retorna la f�rmula general del plano, ya normalizado
 	
 }
@@ -683,4 +589,16 @@ glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sp
 	glm::vec3 normalPlano = glm::normalize(impact-sphere.position);
 	float D = (normalPlano.x * impact.x * -1) + (normalPlano.y * impact.y * -1) + (normalPlano.z * impact.z * -1);
 	return { normalPlano.x, normalPlano.y, normalPlano.z, D};
+}
+
+
+glm::vec3 getPerpVector(glm::vec3 _a, glm::vec3 _b) {
+	// Obtener un vector perpendicular a ambos
+		/*
+		|i,  j,	 k | <-- Obtener el vector perpendicular a otros dos vectores
+		|Ax, Ay, Az|
+		|Bx, By, Bz|= (a)-(b)+(c) = 0
+		*/
+	return { (_a.y * _b.z) - (_b.y * _a.z), (_a.x * _b.z) - (_b.x * _a.z), (_a.x * _b.y) - (_b.x * _a.y) };
+
 }
