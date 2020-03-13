@@ -30,7 +30,7 @@ static const char* ExecutionModeString[]{ "Sequential", "Parallel (c++17 not avi
 enum class CascadeAxis{X_LEFT, X_RIGHT, Z_FRONT, Z_BACK};
 static const char* CascadeAxisString[]{ "X left", "X right", "Z front", "Z back" };
 
-//Function declarations
+// Forward declarations
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
 glm::vec3 GetCascadeRotation(glm::vec3 dir, float angle);
 glm::vec3 getPerpVector(glm::vec3 _a, glm::vec3 _b);
@@ -128,6 +128,7 @@ struct Particles {
 	float cascadeAngle = 0.0f;
 	float cascadeStrength = 5.0f;
 	float overture = 0.5f;
+	float pointsOverture = 0.0f;
 	float originalLifetime = 2.5f; // UI --> >=0.5
 	// Physics parameters
 	// UI --> El minimo y el m�ximo de la cantidad de partículas
@@ -296,7 +297,6 @@ struct Particles {
 				primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 				break;
 			case Mode::CASCADE_FACES:
-
 				switch (axis)
 				{
 				case CascadeAxis::X_LEFT:
@@ -304,7 +304,6 @@ struct Particles {
 					if (overture >= 0.01f) {
 						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
@@ -313,7 +312,6 @@ struct Particles {
 					if (overture >= 0.01f) {
 						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
 					break;
@@ -321,7 +319,6 @@ struct Particles {
 					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, +5.f - distFromAxis };
 					if (overture >= 0.01f) {
 						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
@@ -330,7 +327,6 @@ struct Particles {
 					originPosition = { ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 10.f) - 5 , cascadeHeight, -5.f + distFromAxis };
 					if (overture >= 0.01f) {
 						tmpY += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
-						tmpX += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 						tmpZ += static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* overture * 5 - (overture * 2.5f);
 					}
 					primaSpeeds[i] = speeds[i] = { tmpX, tmpY, tmpZ };
@@ -347,10 +343,9 @@ struct Particles {
 				director = glm::normalize(director);
 				originPosition = { CascadePointB + alpha * director };
 				primaPositions[i] = positions[i] = originPosition;
-				glm::vec3 helper = GetCascadeRotation(director, cascadeAngle);
+				float apertureRand = static_cast <float> (rand()) / static_cast <float> (RAND_MAX)* pointsOverture - pointsOverture/2;
+				glm::vec3 helper = GetCascadeRotation(director, cascadeAngle + apertureRand);
 				primaSpeeds[i] = speeds[i] = helper * cascadeStrength;
-
-				// Hacer la apertura
 				}
 				break;
 			default:
@@ -413,24 +408,28 @@ void GUI() {
 	{
 	case Mode::FOUNTAIN:
 		ImGui::DragFloat3("Position", &parts.fountainOrigin[0], .01f);
-		
+		ImGui::SliderFloat("Overture", &parts.overture, 0, 1, "%.2f", .5f);
+
 		break;
 	case Mode::CASCADE_FACES:
 		ImGui::Combo("Position", (int*)(&parts.axis), CascadeAxisString, 4);
 		ImGui::SliderFloat("Distance from axis", &parts.distFromAxis, 0, 5);
 		ImGui::SliderFloat("Height", &parts.cascadeHeight, 0, 9.999f);
+		ImGui::SliderFloat("Overture", &parts.overture, 0, 1, "%.2f", .5f);
+
 		break;
 	case Mode::CASCADE_POINTS:
 		ImGui::DragFloat3(("Cascade Point A"), &parts.CascadePointA[0], .01f);
 		ImGui::DragFloat3(("Cascade Point B"), &parts.CascadePointB[0], .01f);
-		parts.CascadePointA.x = glm::clamp(parts.CascadePointA.x, -5.f, 5.f);
-		parts.CascadePointA.z = glm::clamp(parts.CascadePointA.z, -5.f, 5.f);
-		parts.CascadePointB.x = glm::clamp(parts.CascadePointB.x, -5.f, 5.f);
-		parts.CascadePointB.z = glm::clamp(parts.CascadePointB.z, -5.f, 5.f);
-		parts.CascadePointA.y = glm::clamp(parts.CascadePointA.y, 0.f, 9.99f);
-		parts.CascadePointB.y = glm::clamp(parts.CascadePointB.y, 0.f, 9.99f);
+		parts.CascadePointA.x = glm::clamp(parts.CascadePointA.x, -4.99f, 4.99f);
+		parts.CascadePointA.z = glm::clamp(parts.CascadePointA.z, -4.99f, 4.99f);
+		parts.CascadePointB.x = glm::clamp(parts.CascadePointB.x, -4.99f, 4.99f);
+		parts.CascadePointB.z = glm::clamp(parts.CascadePointB.z, -4.99f, 4.99f);
+		parts.CascadePointA.y = glm::clamp(parts.CascadePointA.y, 0.1f, 9.99f);
+		parts.CascadePointB.y = glm::clamp(parts.CascadePointB.y, 0.1f, 9.99f);
 		ImGui::SliderFloat("Emition angle", &parts.cascadeAngle, 0, 360);
-		ImGui::SliderFloat("Emition force", &parts.cascadeStrength, 0, 10);
+		ImGui::SliderFloat("Emition force", &parts.cascadeStrength, 0.5, 10);
+		ImGui::SliderFloat("Overture", &parts.pointsOverture, 0, 90, "%.2f", .5f);
 		break;
 	}
 	ImGui::Spacing();
@@ -459,13 +458,12 @@ void GUI() {
 			}
 			break;
 		case Mode::CASCADE_POINTS:
-			parts.originalSpeed = parts.FountainOriginalSpeed;
-			// Calcular el speed basandote en el ángulo
+
 			break;
 		}
 	}
-	ImGui::SliderFloat("Overture", &parts.overture,0,1,"%.2f", .5f);
 	if (parts.overture < 0.01f) parts.overture = 0;
+	if (parts.pointsOverture < 0.01f) parts.overture = 0;
 	ImGui::DragFloat3("Start Acceleration", &parts.originalSpeed[0], .01f);
 	float lastLife = parts.originalLifetime;
 	float lastEmission = parts.emissionRate;
@@ -534,11 +532,19 @@ void PhysicsCleanup() {
 	parts.CleanParticles();
 }
 
-glm::vec3 GetCascadeRotation(glm::vec3 dir, float angle) {
+glm::vec3 GetCascadeRotation(glm::vec3 k, float angle) {
 
-	glm::vec3 helper = {dir.y * sin(glm::radians(angle)), -dir.x * cos(glm::radians(angle)), 0 }; 	
-	return glm::normalize(getPerpVector(dir, helper));
+	// Obtenemos un vector perpendicular cualquiera, basándonos en el que ya tenemos, esta es la forma mas simple
+	glm::vec3 v = { k.y, -k.x, 0 };
+
+	// Aplicamos la "Rodrigues Rotation Formula" que nos permite rotar un vector cualquiera en un eje personalizado
+	// v' = v cosθ + (k x v)sinθ + k(k*v)(1-cosθ)  <--- Esta es la formula
+	// Donde K = el vector director de la cascada, y V es el vector que queremos rotar
+	glm::vec3 newRotation = v * cos(glm::radians(angle)) + (glm::cross(k, v) * sin(glm::radians(angle))) + k * (glm::dot(k, v)) * (1 - cos(glm::radians(angle)));
+	return glm::normalize(newRotation); // Lo normalizamos para usarlo en base a la strength
 }
+
+
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d) {
 	// Teniendo los puntos, obtener dos vectores para el plano
 	glm::vec3 VecA = _b - _a; // Recta A = _a + x*VecA
