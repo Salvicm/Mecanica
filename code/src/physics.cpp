@@ -17,7 +17,7 @@
 #  define ppl 0
 #endif
 
-float elasticity = 0.75f;
+float elasticity = 0.75f; // Aviso, bajar esto de 0.6 puede causar partículas que se salten colisiones si la aceleracion es muy alta.
 int maxThreads = std::thread::hardware_concurrency();
 enum class Mode{FOUNTAIN, CASCADE_FACES, CASCADE_POINTS};
 static const char* ModeString[]{ "Fountain", "Cascade by faces", "Cascade by points" };
@@ -35,6 +35,10 @@ static const char* CascadeAxisString[]{ "X left", "X right", "Z front", "Z back"
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
 glm::vec3 GetCascadeRotation(glm::vec3 dir, float angle);
 glm::vec3 getPerpVector(glm::vec3 _a, glm::vec3 _b);
+glm::vec3 eulerSolver(const glm::vec3 origin, const glm::vec3 end, const float _dt);
+bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano);
+glm::vec3 fixPos(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano);
+glm::vec3 fixSpeed(glm::vec3 originalSpeed, glm::vec3 endSpeed, glm::vec4 plano);
 
 namespace Sphere {
 	extern void setupSphere(glm::vec3 pos, float radius);
@@ -61,32 +65,7 @@ namespace Box {
 	extern float cubeVerts[];
 	extern GLubyte cubeIdx[];
 }
-glm::vec3 eulerSolver(const glm::vec3 origin, const glm::vec3 end, const float _dt) {
-	return origin + _dt * end;
-}
-glm::vec3 eulerFixer(glm::vec3 origin, glm::vec3 end, glm::vec4 planeInfo) {
-	return{ 0,0,0 };
-}
-bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos,const glm::vec4 plano) {
-	 // (n * pt + d)(n*pt+dt + d)
-	float x = (originalPos.x * plano.x) + (originalPos.y *plano.y) + (originalPos.z * plano.z) + plano.w;
-	float y = (endPos.x * plano.x) + (endPos.y *plano.y) + (endPos.z * plano.z) + plano.w;
-	return x * y < 0;
-}
-glm::vec3 fixPos(const glm::vec3 originalPos,const glm::vec3 endPos,const glm::vec4 plano) {
-	glm::vec3 newPos = { 0,0,0 };
-	glm::vec3 normalPlano = { plano.x, plano.y, plano.z };
-	newPos = (endPos - (2 * (glm::dot(endPos, normalPlano) + plano.w)) * normalPlano); // Podr�amos usar glm::reflect
-	return newPos;
 
-}
-glm::vec3 fixSpeed(glm::vec3 originalSpeed, glm::vec3 endSpeed, glm::vec4 plano) { 
-	glm::vec3 newSpeed = { 0,0,0 };
-	glm::vec3 normalPlano = { plano.x, plano.y, plano.z };
-	newSpeed = (endSpeed - (2 * (glm::dot(endSpeed, normalPlano))) * normalPlano) * elasticity;
-
-	return newSpeed;
-}
 
 struct Spheres {
 	float radius;
@@ -100,7 +79,7 @@ struct Capsules {
 	glm::vec3 position2;
 };
 bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos);
-bool CheckCollisionWithCapsule(Capsules capsule, glm::vec3 primaPos);
+bool CheckCollisionWithCapsule(Capsules capsule, glm::vec3 primaPos, glm::vec3 originPos);
 glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere);
 glm::vec4 getPlaneFromCapsule(glm::vec3 originalPos, glm::vec3 endPos, Capsules capsule);
 
@@ -111,17 +90,17 @@ struct Particles {
 #pragma region BasicParticlesData
 	Mode mode = Mode::CASCADE_FACES; // UI  --> El selector entre fuente y cascada
 	CascadeAxis axis = CascadeAxis::X_RIGHT; // UI --> El selector entre ejes de la cascada
-	float distFromAxis = 2.0f; // UI --> 0 - 5 --> Distancia a la pared en cascada
-	float cascadeHeight = 5.0f; // UI --> 0 - 9.99 --> Altura de la cascada
-	glm::vec3 fountainOrigin = { 0.f, 5.0f,0.f }; // UI --> {(-5,5), (0,9'99), (-5,5)} --> Posicion de origen de la fuente
-	glm::vec3 acceleration = { 0, -9.81f, 0 }; // UI --> Aceleracion de todas las part�culas
+	float distFromAxis = 2.0f; // 0 - 5 
+	float cascadeHeight = 5.0f; // 0 - 9.99 
+	glm::vec3 fountainOrigin = { 0.f, 5.0f,0.f }; // {(-5,5), (0,9'99), (-5,5)}
+	glm::vec3 acceleration = { 0, -9.81f, 0 }; 
 	glm::vec3 *positions;
 	glm::vec3 *primaPositions;
 	glm::vec3 *speeds;
 	glm::vec3 *primaSpeeds;
 	float *lifeTime;
 	float *currentLifeTime;
-	glm::vec3 originalSpeed = { -2,0,0 }; // UI --> Velocidad original
+	glm::vec3 originalSpeed = { -2,0,0 }; 
 	const glm::vec3 FountainOriginalSpeed = { 0,5,0 };
 	const glm::vec3 CascadeFXOriginalSpeed = { 2,0,0 };
 	const glm::vec3 CascadeBXOriginalSpeed = { -2,0,0 };
@@ -134,13 +113,13 @@ struct Particles {
 	float cascadeStrength = 5.0f;
 	float overture = 0.5f;
 	float pointsOverture = 0.0f;
-	float originalLifetime = 2.5f; // UI --> >=0.5
+	float originalLifetime = 2.5f; //  >=0.5
+	
 	// Physics parameters
-	// UI --> El minimo y el m�ximo de la cantidad de partículas
 	float min = 0.0f; 
 	float max = 1000.0f;
 	float emissionRate = 100;
-	int maxParticles = emissionRate * originalLifetime; // UI --> Cuando se modifique esto, hacer deletes de todos los arrays din�micos y llamar a InitParticles
+	int maxParticles = emissionRate * originalLifetime; 
 	float maxVisible = 0;
 	bool hasStarted = false;
 #pragma endregion
@@ -254,13 +233,7 @@ struct Particles {
 			primaPositions[i] = eulerSolver(positions[i], speeds[i], dt);
 			primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 
-			for (int it = 0; it < planes.size(); it++) {
-				if (checkWithPlane(positions[i], primaPositions[i], planes[it])) {
-					primaPositions[i] = fixPos(positions[i], primaPositions[i], planes[it]);
-					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], planes[it]);
-				}
-			}
-			
+		
 			
 			extern bool renderSphere;
 			if(renderSphere)
@@ -269,15 +242,22 @@ struct Particles {
 					primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
 					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
 				}
-			speeds[i] = primaSpeeds[i];
-			positions[i] = primaPositions[i];
 			extern bool renderCapsule;
 			if(renderCapsule)
-				if (CheckCollisionWithCapsule(capsule, primaPositions[i])) {
+				if (CheckCollisionWithCapsule(capsule, primaPositions[i], positions[i])) {
 					plano = getPlaneFromCapsule(positions[i], primaPositions[i], capsule);
 					primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
 					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
 				}
+			for (int it = 0; it < planes.size(); it++) {
+				// Para evitar problemas, comprobar siempre los planos lo último
+				if (checkWithPlane(positions[i], primaPositions[i], planes[it])) {
+					primaPositions[i] = fixPos(positions[i], primaPositions[i], planes[it]);
+					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], planes[it]);
+				}
+			}
+
+
 			speeds[i] = primaSpeeds[i];
 			positions[i] = primaPositions[i];
 
@@ -349,7 +329,14 @@ struct Particles {
 				break;
 			case Mode::CASCADE_POINTS:
 				{
-				glm::vec3 director = CascadePointA - CascadePointB;
+				glm::vec3 director;
+				if (CascadePointA != CascadePointB) {
+
+					director = CascadePointA - CascadePointB;
+				}
+				else {
+					director = { 0.01f,0,0 };
+				}
 				float alpha = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) * glm::length(director));
 				director = glm::normalize(director);
 				originPosition = { CascadePointB + alpha * director };
@@ -424,23 +411,23 @@ void GUI() {
 		break;
 	case Mode::CASCADE_FACES:
 		ImGui::Combo("Position", (int*)(&parts.axis), CascadeAxisString, 4);
-		ImGui::SliderFloat("Distance from axis", &parts.distFromAxis, 0, 5);
-		ImGui::SliderFloat("Height", &parts.cascadeHeight, 0, 9.999f);
 		ImGui::SliderFloat("Overture", &parts.overture, 0, 1, "%.2f", .5f);
+		ImGui::SliderFloat("Distance from axis", &parts.distFromAxis, 0, 5);
+		ImGui::SliderFloat("Height", &parts.cascadeHeight, 0.0001f, 9.999f);
 
 		break;
 	case Mode::CASCADE_POINTS:
 		ImGui::DragFloat3(("Cascade Point A"), &parts.CascadePointA[0], .01f);
 		ImGui::DragFloat3(("Cascade Point B"), &parts.CascadePointB[0], .01f);
-		parts.CascadePointA.x = glm::clamp(parts.CascadePointA.x, -4.99f, 4.99f);
-		parts.CascadePointA.z = glm::clamp(parts.CascadePointA.z, -4.99f, 4.99f);
-		parts.CascadePointB.x = glm::clamp(parts.CascadePointB.x, -4.99f, 4.99f);
-		parts.CascadePointB.z = glm::clamp(parts.CascadePointB.z, -4.99f, 4.99f);
-		parts.CascadePointA.y = glm::clamp(parts.CascadePointA.y, 0.1f, 9.99f);
-		parts.CascadePointB.y = glm::clamp(parts.CascadePointB.y, 0.1f, 9.99f);
+		parts.CascadePointA.x = glm::clamp(parts.CascadePointA.x, -4.999f, 4.999f);
+		parts.CascadePointA.z = glm::clamp(parts.CascadePointA.z, -4.999f, 4.999f);
+		parts.CascadePointB.x = glm::clamp(parts.CascadePointB.x, -4.999f, 4.999f);
+		parts.CascadePointB.z = glm::clamp(parts.CascadePointB.z, -4.999f, 4.999f);
+		parts.CascadePointA.y = glm::clamp(parts.CascadePointA.y, 0.01f, 9.999f);
+		parts.CascadePointB.y = glm::clamp(parts.CascadePointB.y, 0.01f, 9.999f);
+		ImGui::SliderFloat("Overture", &parts.pointsOverture, 0, 90, "%.2f", .5f);
 		ImGui::SliderFloat("Emition angle", &parts.cascadeAngle, 0, 360);
 		ImGui::SliderFloat("Emition force", &parts.cascadeStrength, 0.5, 10);
-		ImGui::SliderFloat("Overture", &parts.pointsOverture, 0, 90, "%.2f", .5f);
 		break;
 	}
 	ImGui::Spacing();
@@ -474,7 +461,7 @@ void GUI() {
 		}
 	}
 	if (parts.overture < 0.01f) parts.overture = 0;
-	if (parts.pointsOverture < 0.01f) parts.overture = 0;
+	if (parts.pointsOverture < 0.01f) parts.pointsOverture = 0;
 	ImGui::DragFloat3("Start Acceleration", &parts.originalSpeed[0], .01f);
 	float lastLife = parts.originalLifetime;
 	float lastEmission = parts.emissionRate;
@@ -572,8 +559,12 @@ glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d)
 bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos) {
 	return glm::distance(sphere.position, primaPos) <= sphere.radius;
 }
-bool CheckCollisionWithCapsule(Capsules capsule, glm::vec3 primaPos) {
-	return glm::distance(glm::closestPointOnLine(primaPos, capsule.position1, capsule.position2), primaPos) <= capsule.radius;
+bool CheckCollisionWithCapsule(Capsules capsule, glm::vec3 primaPos, glm::vec3 originPos) {
+	if (glm::distance(glm::closestPointOnLine(primaPos, capsule.position1, capsule.position2), primaPos) <= capsule.radius)
+		if (glm::distance(glm::closestPointOnLine(originPos, capsule.position1, capsule.position2), originPos) > capsule.radius)
+			return true;
+	
+	return false;
 }
 
 glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere) {
@@ -622,15 +613,53 @@ glm::vec3 getPerpVector(glm::vec3 _a, glm::vec3 _b) {
 }
 
 glm::vec4 getPlaneFromCapsule(glm::vec3 originalPos, glm::vec3 endPos, Capsules capsule) {
-	glm::vec3 pos = glm::closestPointOnLine(endPos, capsule.position1, capsule.position2);
-	glm::vec3 pos1 = glm::closestPointOnLine(originalPos, capsule.position1, capsule.position2);
-	if (pos == pos1) {
-		if (pos == capsule.position1) {
-			return getPlaneFromSphere(originalPos, endPos, { capsule.radius, capsule.position1 });
-		}
-		if (pos == capsule.position2) {
-			return getPlaneFromSphere(originalPos, endPos, { capsule.radius, capsule.position2 });
-		}
-	}
-	return getPlaneFromSphere(originalPos, endPos, { capsule.radius, glm::closestPointOnLine(endPos, capsule.position1, capsule.position2) });
+
+	/*
+		Obtener los puntos mas cercanos tanto antes como despues de la colision
+		Conseguir el punto intermedio entre ambos puntos en la recta y entre la particula antes y despues
+		Crear un vector director entre ambos puntos centrales
+		El vector director es la normal del plano
+		Debido a que en Euler las actualizaciones de colision son siempre lineales, esto nos sirve para hacerlo, en caso de 
+			usar un solver mas concreto, daría errores
+		Normalizarlo y calcular la D
+	
+	*/
+
+	glm::vec3 collisionPointInside = glm::closestPointOnLine(endPos, capsule.position1, capsule.position2);
+	glm::vec3 collisionPointOutside = glm::closestPointOnLine(originalPos, capsule.position1, capsule.position2);
+	glm::vec3 middleColPoint = (collisionPointInside + collisionPointOutside) / 2.0f;
+	glm::vec3 middlePartPoint = (originalPos + endPos) / 2.0f;
+	glm::vec3 directorPoint = middlePartPoint - middleColPoint;
+
+	directorPoint = glm::normalize(directorPoint);
+	float D = (directorPoint.x * middlePartPoint.x * -1) + (directorPoint.y * middlePartPoint.y * -1) + (directorPoint.z * middlePartPoint.z * -1);
+
+	return { directorPoint.x,directorPoint.y,directorPoint.z,D };
 }
+
+glm::vec3 eulerSolver(const glm::vec3 origin, const glm::vec3 end, const float _dt) {
+	return origin + _dt * end;
+}
+
+bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano) {
+	// (n * pt + d)(n*pt+dt + d)
+	float x = (originalPos.x * plano.x) + (originalPos.y * plano.y) + (originalPos.z * plano.z) + plano.w;
+	float y = (endPos.x * plano.x) + (endPos.y * plano.y) + (endPos.z * plano.z) + plano.w;
+	return x * y < 0;
+}
+glm::vec3 fixPos(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano) {
+	glm::vec3 newPos = { 0,0,0 };
+	glm::vec3 normalPlano = { plano.x, plano.y, plano.z };
+	newPos = (endPos - (2 * (glm::dot(endPos, normalPlano) + plano.w)) * normalPlano); // Podr�amos usar glm::reflect
+	return newPos;
+
+}
+glm::vec3 fixSpeed(glm::vec3 originalSpeed, glm::vec3 endSpeed, glm::vec4 plano) {
+	glm::vec3 newSpeed = { 0,0,0 };
+	glm::vec3 normalPlano = { plano.x, plano.y, plano.z };
+	newSpeed = (endSpeed - (2 * (glm::dot(endSpeed, normalPlano))) * normalPlano) * elasticity;
+
+	return newSpeed;
+}
+
+
