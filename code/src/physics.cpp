@@ -75,7 +75,7 @@ glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sp
 struct Cloth {
 	Spheres sphere = { 2.5f, {0, 2.5f, -0} };
 	std::vector<glm::vec4> planes;
-	glm::vec3 acceleration = { 0, -9.81f, 0 }; 
+	glm::vec3 acceleration = { 0, -9.81f, 0 };
 	glm::vec3  PARTICLE_START_POSITION = { 0,6,0 };
 	float  PARTICLE_DISTANCE = .3f;
 
@@ -84,10 +84,10 @@ struct Cloth {
 	int const RESOLUTION_Y = 18;
 	int const RESOLUTION = RESOLUTION_X * RESOLUTION_Y;
 
-	glm::vec3 *positions;
-	glm::vec3 *primaPositions;
-	glm::vec3 *speeds;
-	glm::vec3 *primaSpeeds;
+	glm::vec3* positions;
+	glm::vec3* primaPositions;
+	glm::vec3* speeds;
+	glm::vec3* primaSpeeds;
 	std::vector<bool> staticParticles;
 
 	float aliveTime = 0;
@@ -135,7 +135,7 @@ struct Cloth {
 			SpawnParticle(i);
 		}
 		staticParticles[0] = true;
-		staticParticles[13] = true;
+		staticParticles[RESOLUTION_X - 1] = true;
 		LilSpheres::particleCount = RESOLUTION;
 	}
 	void UpdateParticles(float dt) {
@@ -150,7 +150,7 @@ struct Cloth {
 #if ppl == 1
 			Concurrency::parallel_for(0, (int)RESOLUTION, [this, dt](int i) {
 				UpdateParticle(i, dt);
-			});
+				});
 #endif
 			break;
 		default:
