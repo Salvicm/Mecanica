@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 #if __has_include(<ppl.h>)
 #  include <ppl.h>
 #  define ppl 1
@@ -73,6 +74,13 @@ struct Spheres {
 	Spheres() : radius(2.0f), position({ 0,0,0 }) {}
 	Spheres(float rad, glm::vec3 pos) : radius(rad), position(pos){}
 };
+
+struct Spring {
+	int const ID;
+	float const distance;
+	Spring(int id_ = 0, float distance_ = 1) : ID(id_), distance(distance_) {};
+};
+
 bool CheckCollisionWithSphere(Spheres sphere, glm::vec3 primaPos);
 glm::vec4 getPlaneFromSphere(glm::vec3 originalPos, glm::vec3 endPos, Spheres sphere);
 
@@ -82,6 +90,7 @@ struct Cloth {
 	glm::vec3 acceleration = { 0, -9.81f, 0 };
 	glm::vec3  PARTICLE_START_POSITION = { 0,6,0 };
 	float  PARTICLE_DISTANCE = .3f;
+	bool Replay = true;
 
 
 	int const RESOLUTION_X = 14;
@@ -93,6 +102,14 @@ struct Cloth {
 	glm::vec3* primaPositions;
 	glm::vec3* speeds;
 	glm::vec3* primaSpeeds;
+
+	float structuralK = 1;
+	std::multimap<int, Spring> structuralSprings;
+	float shearK = 1;
+	std::multimap<int, Spring> shearSprings;
+	float bendK = 1;
+	std::multimap<int, Spring> bendSprings;
+
 	std::vector<bool> staticParticles;
 
 	float aliveTime = 0;
@@ -118,9 +135,18 @@ struct Cloth {
 
 	void InitParticles() {
 		//std::cout << "Setting particles" << std::endl;
-		srand(time(NULL));
 		extern bool renderSphere;
-		//renderSphere = true;
+		renderSphere = true;
+		sphere = { 2.5f, {0, 2.5f, 0} };
+		sphere.position.x += (static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1;
+		sphere.position.y += (static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1;
+		sphere.position.z += (static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1;
+		sphere.radius += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2;
+		float ydistance = (sphere.radius + sphere.position.y) - PARTICLE_START_POSITION.y + 0.1f;
+		if (ydistance > 0) {
+			sphere.position.y -= ydistance;
+			ydistance = (sphere.radius + sphere.position.y) - PARTICLE_START_POSITION.y;
+		}
 		Sphere::setupSphere(sphere.position, sphere.radius);
 		ClothMesh::setupClothMesh();
 		if (planes.size() == 0) {
@@ -145,9 +171,11 @@ struct Cloth {
 		LilSpheres::particleCount = RESOLUTION;
 	}
 	void UpdateParticles(float dt) {
-		aliveTime += dt;
-		if (aliveTime > MAX_TIME) {
-			ResetParticles();
+		if (Replay) {
+			aliveTime += dt;
+			if (aliveTime > MAX_TIME) {
+				ResetParticles();
+			}
 		}
 
 		switch (exMode)
@@ -238,6 +266,31 @@ struct Cloth {
 		position.x += i % RESOLUTION_X * PARTICLE_DISTANCE;
 		position.z += ((i / RESOLUTION_X) % RESOLUTION_Y) * PARTICLE_DISTANCE;
 		//std::cout << i  << ": " << position.x << ", " << position.y << ", " << position.z << std::endl;
+
+		///Structural
+		if (i + 1 < RESOLUTION) {
+			structuralSprings.insert(std::pair<int, Spring>(i, Spring(i + 1, PARTICLE_DISTANCE)));
+		}
+		if (i + RESOLUTION_X < RESOLUTION) {
+			structuralSprings.insert(std::pair<int, Spring>(i, Spring(i + RESOLUTION_X, PARTICLE_DISTANCE)));
+		}
+
+		///Shear
+		if (i + 1 + RESOLUTION_X < RESOLUTION) {
+			shearSprings.insert(std::pair<int, Spring>(i, Spring(i + 1 + RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE) )));
+		}
+		if (i - 1 + RESOLUTION_X < RESOLUTION && i - 1 + RESOLUTION_X >= 0) {
+			shearSprings.insert(std::pair<int, Spring>(i, Spring(i - 1 + RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE) )));
+		}
+
+		///Bend
+		if (i + 2 < RESOLUTION) {
+			bendSprings.insert(std::pair<int, Spring>(i, Spring(i + 2, PARTICLE_DISTANCE*2)));
+		}
+		if (i + RESOLUTION_X * 2 < RESOLUTION) {
+			bendSprings.insert(std::pair<int, Spring>(i, Spring(i + RESOLUTION_X * 2, PARTICLE_DISTANCE*2)));
+		}
+
 		lastPositions[i] = position;
 		positions[i] = position;
 	}
@@ -250,6 +303,9 @@ struct Cloth {
 		delete[] primaPositions;
 		delete[] primaSpeeds;
 		staticParticles.clear();
+		structuralSprings.clear();
+		shearSprings.clear();
+		bendSprings.clear();
 	}
 	void ResetParticles() {
 		aliveTime = 0;
@@ -279,6 +335,9 @@ void GUI() {
 	SolverMode lastSolver = solverMode;
 	ImGui::Combo("Solver mode", (int*)(&solverMode), SolverModeString, 2);
 	if (lastSolver != solverMode) parts.ResetParticles();
+	if(solverMode == SolverMode::EULER)
+		ImGui::SliderFloat("Elasticity", &elasticity, .5f, 1);
+	ImGui::DragFloat3("Global Acceleration", &parts.acceleration[0], .01f);
 
 	ImGui::NewLine();
 	ImGui::Text("Cloth options:");
@@ -286,18 +345,22 @@ void GUI() {
 	ImGui::Checkbox("Draw cloth", &renderCloth);
 	extern bool renderParticles;
 	ImGui::Checkbox("Draw particles", &renderParticles);
-	ImGui::DragFloat3("Position ", &parts.PARTICLE_START_POSITION[0], .01f);
-	ImGui::DragFloat("Distance ", &parts.PARTICLE_DISTANCE, .01f);
+	ImGui::Checkbox("Auto reset", &parts.Replay);
+	if (parts.Replay) {
+		ImGui::Text("Reset in %.1f seconds", parts.MAX_TIME - parts.aliveTime);
+	}
+	ImGui::Spacing();
+	ImGui::DragFloat3("Start position ", &parts.PARTICLE_START_POSITION[0], .01f);
+	ImGui::DragFloat("Cloth distance ", &parts.PARTICLE_DISTANCE, .01f);
+	ImGui::Spacing();
+	ImGui::DragFloat("Structural K ", &parts.structuralK, .01f);
+	ImGui::DragFloat("Shear K ", &parts.shearK, .01f);
+	ImGui::DragFloat("Bend K ", &parts.bendK, .01f);
 
+	ImGui::Spacing();
 	if (ImGui::Button("Reset")) {
 		parts.ResetParticles();
 	}
-
-
-	ImGui::NewLine();
-	ImGui::Text("Physics options:");
-	ImGui::SliderFloat("Elasticity", &elasticity, .5f, 1);
-	ImGui::DragFloat3("Global Acceleration", &parts.acceleration[0], .01f);
 
 
 	ImGui::NewLine();
@@ -315,6 +378,7 @@ void GUI() {
 }
 
 void PhysicsInit() {
+	srand(time(NULL));
 	parts.InitParticles();
 }
 
