@@ -177,7 +177,7 @@ struct Cloth {
 			case SolverMode::VERLET:
 			{
 				glm::vec4 plano;
-				glm::vec3 tempLastPos = lastPositions[i];
+				glm::vec3 tempLastPos = positions[i];
 				primaPositions[i] = verletSolver(lastPositions[i], positions[i], acceleration, 1.f, dt);
 				//primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 
