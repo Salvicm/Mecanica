@@ -24,12 +24,16 @@ static const char* ExecutionModeString[]{ "Sequential", "Parallel" };
 #else
 static const char* ExecutionModeString[]{ "Sequential", "Parallel (c++17 not available)" };
 #endif
+enum class SolverMode { VERLET, EULER };
+SolverMode solverMode = SolverMode::VERLET;
+static const char* SolverModeString[]{ "Verlet", "Euler" };
 
 // Forward declarations
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
 glm::vec3 GetCascadeRotation(glm::vec3 dir, float angle);
 glm::vec3 getPerpVector(glm::vec3 _a, glm::vec3 _b);
 glm::vec3 eulerSolver(const glm::vec3 origin, const glm::vec3 end, const float _dt);
+glm::vec3 verletSolver(const glm::vec3 lastPos, const glm::vec3 newPos, const glm::vec3 force, const float mass_, const float dt_);
 bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano);
 glm::vec3 fixPos(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano);
 glm::vec3 fixSpeed(glm::vec3 originalSpeed, glm::vec3 endSpeed, glm::vec4 plano);
@@ -85,6 +89,7 @@ struct Cloth {
 	int const RESOLUTION = RESOLUTION_X * RESOLUTION_Y;
 
 	glm::vec3* positions;
+	glm::vec3* lastPositions;
 	glm::vec3* primaPositions;
 	glm::vec3* speeds;
 	glm::vec3* primaSpeeds;
@@ -122,6 +127,7 @@ struct Cloth {
 			InitPlanes();
 		}
 		positions = new glm::vec3[RESOLUTION];
+		lastPositions = new glm::vec3[RESOLUTION];
 		speeds = new glm::vec3[RESOLUTION];
 		primaPositions = new glm::vec3[RESOLUTION];
 		primaSpeeds = new glm::vec3[RESOLUTION];
@@ -166,27 +172,63 @@ struct Cloth {
 
 	void UpdateParticle(int i, float dt) {
 		if (!staticParticles[i]) {
-			glm::vec4 plano;
-			primaPositions[i] = eulerSolver(positions[i], speeds[i], dt);
-			primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
+			switch (solverMode)
+			{
+			case SolverMode::VERLET:
+			{
+				glm::vec4 plano;
+				glm::vec3 tempLastPos = lastPositions[i];
+				primaPositions[i] = verletSolver(lastPositions[i], positions[i], acceleration, 1.f, dt);
+				//primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 
-			extern bool renderSphere;
-			if (renderSphere)
-				if (CheckCollisionWithSphere(sphere, primaPositions[i])) {
-					plano = getPlaneFromSphere(positions[i], primaPositions[i], sphere);
-					primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
-					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
+				extern bool renderSphere;
+				if (renderSphere)
+					if (CheckCollisionWithSphere(sphere, primaPositions[i])) {
+						plano = getPlaneFromSphere(positions[i], primaPositions[i], sphere);
+						primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
+						//primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
+					}
+				for (int it = 0; it < planes.size(); it++) {
+					// Para evitar problemas, comprobar siempre los planos lo último
+					if (checkWithPlane(positions[i], primaPositions[i], planes[it])) {
+						primaPositions[i] = fixPos(positions[i], primaPositions[i], planes[it]);
+						//primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], planes[it]);
+					}
 				}
-			for (int it = 0; it < planes.size(); it++) {
-				// Para evitar problemas, comprobar siempre los planos lo último
-				if (checkWithPlane(positions[i], primaPositions[i], planes[it])) {
-					primaPositions[i] = fixPos(positions[i], primaPositions[i], planes[it]);
-					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], planes[it]);
-				}
+
+				//speeds[i] = primaSpeeds[i];
+				positions[i] = primaPositions[i];
+				lastPositions[i] = tempLastPos;
 			}
+				break;
+			case SolverMode::EULER:
+			{
+				glm::vec4 plano;
+				primaPositions[i] = eulerSolver(positions[i], speeds[i], dt);
+				primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 
-			speeds[i] = primaSpeeds[i];
-			positions[i] = primaPositions[i];
+				extern bool renderSphere;
+				if (renderSphere)
+					if (CheckCollisionWithSphere(sphere, primaPositions[i])) {
+						plano = getPlaneFromSphere(positions[i], primaPositions[i], sphere);
+						primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
+						primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
+					}
+				for (int it = 0; it < planes.size(); it++) {
+					// Para evitar problemas, comprobar siempre los planos lo último
+					if (checkWithPlane(positions[i], primaPositions[i], planes[it])) {
+						primaPositions[i] = fixPos(positions[i], primaPositions[i], planes[it]);
+						primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], planes[it]);
+					}
+				}
+
+				speeds[i] = primaSpeeds[i];
+				positions[i] = primaPositions[i];
+			}
+				break;
+			default:
+				break;
+			}
 		}
 	}
 	void SpawnParticle(int i) {
@@ -196,12 +238,14 @@ struct Cloth {
 		position.x += i % RESOLUTION_X * PARTICLE_DISTANCE;
 		position.z += ((i / RESOLUTION_X) % RESOLUTION_Y) * PARTICLE_DISTANCE;
 		//std::cout << i  << ": " << position.x << ", " << position.y << ", " << position.z << std::endl;
+		lastPositions[i] = position;
 		positions[i] = position;
 	}
 	void CleanParticles() {
 		Sphere::cleanupSphere();
 		ClothMesh::cleanupClothMesh();
 		delete[] positions;
+		delete[] lastPositions;
 		delete[] speeds;
 		delete[] primaPositions;
 		delete[] primaSpeeds;
@@ -232,6 +276,9 @@ void GUI() {
 #if ppl == 0
 	if (exMode == ExecutionMode::PARALLEL) exMode = ExecutionMode::STANDARD;
 #endif
+	SolverMode lastSolver = solverMode;
+	ImGui::Combo("Solver mode", (int*)(&solverMode), SolverModeString, 2);
+	if (lastSolver != solverMode) parts.ResetParticles();
 
 	ImGui::NewLine();
 	ImGui::Text("Cloth options:");
@@ -358,6 +405,10 @@ glm::vec3 getPerpVector(glm::vec3 _a, glm::vec3 _b) {
 
 glm::vec3 eulerSolver(const glm::vec3 origin, const glm::vec3 end, const float _dt) {
 	return origin + _dt * end;
+}
+
+glm::vec3 verletSolver(const glm::vec3 lastPos, const glm::vec3 newPos, const glm::vec3 force, const float mass_, const float dt_) {
+	return newPos + (newPos - lastPos) + (force / mass_) * (dt_ * dt_);
 }
 
 bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano) {
