@@ -211,7 +211,6 @@ struct Cloth {
 			{
 				glm::vec4 plano;
 				// Fix forces for structural
-				if (i == 1) std::cout << forces[i].x << ", " << forces[i].y << ", " << forces[i].z << "\t";
 				for (std::vector<Spring>::iterator it = structuralSpringsBeta.at(i).begin(); it != structuralSpringsBeta.at(i).end(); it++)
 				{
 					forces[i] += fixForces(i, it->ID, structuralK, damping, it->distance);
@@ -222,11 +221,10 @@ struct Cloth {
 					forces[i] += fixForces(i, it->ID, shearK, damping, it->distance);
 				}
 				// Fix forces for Bending
-				for (std::vector<Spring>::iterator it = bendSpringsBeta.at(i).begin(); it != bendSpringsBeta.at(i).end(); it++)
+				/*for (std::vector<Spring>::iterator it = bendSpringsBeta.at(i).begin(); it != bendSpringsBeta.at(i).end(); it++)
 				{
 					forces[i] += fixForces(i, it->ID, bendK, damping, it->distance);
-				}
-				if(i == 1) std::cout << forces[i].x << ", " << forces[i].y << ", " << forces[i].z << "\n";
+				}*/
 				primaPositions[i] = verletSolver(lastPositions[i], positions[i], forces[i], 1.f, dt);
 				//primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 
