@@ -103,14 +103,14 @@ struct Cloth {
 	glm::vec3* primaSpeeds;
 	glm::vec3* forces;
 
-	float damping = 0.5f;
-	float structuralK = 0.5f;
+	float damping = 0.05f;
+	float structuralK = 0.05f;
 	std::map<int, std::vector<Spring>> structuralSpringsBeta;
 	std::multimap<int, Spring> structuralSprings;
-	float shearK = 0.5f;
+	float shearK = 0.05f;
 	std::map<int, std::vector<Spring>> shearSpringsBeta;
 	std::multimap<int, Spring> shearSprings;
-	float bendK = 0.5f;
+	float bendK = 0.05f;
 	std::map<int, std::vector<Spring>> bendSpringsBeta;
 	std::multimap<int, Spring> bendSprings;
 
@@ -209,8 +209,10 @@ struct Cloth {
 			{
 			case SolverMode::VERLET:
 			{
+				
 				glm::vec4 plano;
 				// Fix forces for structural
+				forces[i] = acceleration;
 				for (std::vector<Spring>::iterator it = structuralSpringsBeta.at(i).begin(); it != structuralSpringsBeta.at(i).end(); it++)
 				{
 					forces[i] += fixForces(i, it->ID, structuralK, damping, it->distance);
@@ -221,10 +223,11 @@ struct Cloth {
 					forces[i] += fixForces(i, it->ID, shearK, damping, it->distance);
 				}
 				// Fix forces for Bending
-				/*for (std::vector<Spring>::iterator it = bendSpringsBeta.at(i).begin(); it != bendSpringsBeta.at(i).end(); it++)
+
+				for (std::vector<Spring>::iterator it = bendSpringsBeta.at(i).begin(); it != bendSpringsBeta.at(i).end(); it++)
 				{
 					forces[i] += fixForces(i, it->ID, bendK, damping, it->distance);
-				}*/
+				}
 				primaPositions[i] = verletSolver(lastPositions[i], positions[i], forces[i], 1.f, dt);
 				//primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 
@@ -289,12 +292,7 @@ struct Cloth {
 		position.z += ((i / RESOLUTION_X) % RESOLUTION_Y) * PARTICLE_DISTANCE; // Hacemos lo mismo pero con el offset en el otro eje
 
 		///Structural
-		/*if (i + 1 < RESOLUTION){
-			structuralSpringsBeta[i].push_back(Spring(i + 1, PARTICLE_DISTANCE));
-		}
-		if (i + RESOLUTION_X < RESOLUTION) { 
-			structuralSpringsBeta[i].push_back(Spring(i + RESOLUTION_X, PARTICLE_DISTANCE));
-		}*/
+
 		/* Al dividir los numeros entre res_x y pasarlos a int, nos da la fila en la que está
 		|0 ,1 ,2 ,3 ,4 | / 5 = 0
 		|5 ,6 ,7 ,8 ,9 | / 5 = 1
@@ -302,7 +300,8 @@ struct Cloth {
 		|15,16,17,18,19| / 5 = 3
 		|20,21,22,23,24| / 5 = 4
 		*/
-		if ((int)(i / RESOLUTION_X) == (int)((i+1) / RESOLUTION_X) && i+1 < RESOLUTION) {
+		structuralSpringsBeta[i]; // Nos aseguramos que ese valoe esté 
+		if ((int)(i / RESOLUTION_X) == (int)((i + 1) / RESOLUTION_X) && i + 1 < RESOLUTION) {
 			structuralSpringsBeta[i].push_back(Spring(i + 1, PARTICLE_DISTANCE));
 		}
 		if ((int)(i / RESOLUTION_X) == (int)((i - 1) / RESOLUTION_X) && i - 1 >= 0) {
@@ -311,16 +310,12 @@ struct Cloth {
 		if (i + RESOLUTION_X < RESOLUTION) {
 			structuralSpringsBeta[i].push_back(Spring(i + RESOLUTION_X, PARTICLE_DISTANCE));
 		}
-		if (i - RESOLUTION_X > 0) {
+		if (i - RESOLUTION_X >= 0) {
 			structuralSpringsBeta[i].push_back(Spring(i - RESOLUTION_X, PARTICLE_DISTANCE));
 		}
+		
 		///Shear
-		/*if (i + 1 + RESOLUTION_X < RESOLUTION) {
-			shearSpringsBeta[i].push_back(Spring(i + 1 + RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE) ));
-		}
-		if (i - 1 + RESOLUTION_X < RESOLUTION && i - 1 + RESOLUTION_X >= 0) {
-			shearSpringsBeta[i].push_back(Spring(i - 1 + RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE) ));
-		}*/
+		shearSpringsBeta[i]; // Nos aseguramos que ese valoe esté inicializado
 		if ((int)((i + 1 + RESOLUTION_X) / RESOLUTION_X) - (int)(i / RESOLUTION_X) == 1 && i + 1 + RESOLUTION_X < RESOLUTION) {
 			shearSpringsBeta[i].push_back(Spring(i + 1 + RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
 		}
@@ -339,49 +334,39 @@ struct Cloth {
 
 
 		///Bend --> No usar aun
-		/*if (i + 2 < RESOLUTION) {
-			bendSpringsBeta[i].push_back(Spring(i + 2, PARTICLE_DISTANCE*2));
-		}
-		if (i + RESOLUTION_X * 2 < RESOLUTION) {
-			bendSpringsBeta[i].push_back(Spring(i + RESOLUTION_X * 2, PARTICLE_DISTANCE*2));
-		}*/
+
+		bendSpringsBeta[i]; // Nos aseguramos que ese valoe esté inicializado
 		if (i % RESOLUTION_X == 0) { // Está en la zona la izquierda
 			if (i - 2*RESOLUTION_X >= 0) {
 				bendSpringsBeta[i].push_back(Spring(i - 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-
 			}
 			if (i + 2*RESOLUTION_X < RESOLUTION) {
 				bendSpringsBeta[i].push_back(Spring(i + 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
 			}
 		}
-		if (i % (RESOLUTION_X - 1) == 0) { // Está en la zona de la derecha
+		if (i % (RESOLUTION_X) == 13) { // Está en la zona de la derecha
 			if (i - 2 * RESOLUTION_X >= 0) {
 				bendSpringsBeta[i].push_back(Spring(i - 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-
 			}
+
 			if (i + 2 * RESOLUTION_X < RESOLUTION) {
 				bendSpringsBeta[i].push_back(Spring(i + 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-
 			}
 		}
 		if (i < RESOLUTION_X) { // Está en la zona de arriba
 			if (i - 2 >= 0) {
 				bendSpringsBeta[i].push_back(Spring(i - 2, PARTICLE_DISTANCE * 2));
-
 			}
 			if (i + 2 < RESOLUTION_X) {
 				bendSpringsBeta[i].push_back(Spring(i + 2, PARTICLE_DISTANCE * 2));
-
 			}
 		} 
 		if (i >= RESOLUTION - RESOLUTION_X) { // Está en la zona de abajo
 			if (i - 2 >= RESOLUTION - RESOLUTION_X) {
 				bendSpringsBeta[i].push_back(Spring(i - 2, PARTICLE_DISTANCE * 2));
-
 			}
 			if (i + 2 < RESOLUTION) {
 				bendSpringsBeta[i].push_back(Spring(i + 2, PARTICLE_DISTANCE * 2));
-
 			}
 		}
 
@@ -411,14 +396,13 @@ struct Cloth {
 	glm::vec3 fixForces(int i, int j, float ke, float kd, float distance) {
 		if (i == j)
 			return glm::vec3(0, 0, 0);
-		//std::cout << distance << std::endl;
 		glm::vec3 resultantForce = glm::vec3(0, 0, 0);
 		// F = -(ke(||P1-P2|| - Lengh) + kd(v1 - v2) * {(P1-P2)/(||P1-P2||)}) *{(P1-P2)/(||P1-P2||)}
 		float mag = glm::length(positions[i] - positions[j]);
 		float _distance = glm::distance(positions[i], positions[j]);
 		glm::vec3 abs = glm::abs(positions[i] - positions[j]);
 		glm::vec3 dirVect = positions[i] - positions[j]; // Nota, se puede multiplicar vect por float pero no vect por int .-.
-		resultantForce = (-((ke * (mag - distance)) + (kd * (speeds[i] - speeds[j])) * (dirVect / mag))) * (dirVect / mag);
+		resultantForce = -(((ke * (mag - distance)) + (kd * (speeds[i] - speeds[j])) * (dirVect / mag))) * (dirVect / mag);
 
 		return resultantForce;
 	}

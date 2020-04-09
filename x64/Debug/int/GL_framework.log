@@ -1,5 +1,5 @@
 ﻿  physics.cpp
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(494,12): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
+C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(476,12): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
   GL_framework.vcxproj -> C:\Users\Salvi\Documents\Visual\Mecanica\x64\Debug\GL_framework.exe
   0 archivo(s) copiado(s)
   0 archivo(s) copiado(s)
