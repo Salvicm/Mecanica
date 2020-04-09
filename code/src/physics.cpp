@@ -103,16 +103,13 @@ struct Cloth {
 	glm::vec3* primaSpeeds;
 	glm::vec3* forces;
 
-	float damping = 0.05f;
-	float structuralK = 0.05f;
-	std::map<int, std::vector<Spring>> structuralSpringsBeta;
-	std::multimap<int, Spring> structuralSprings;
-	float shearK = 0.05f;
-	std::map<int, std::vector<Spring>> shearSpringsBeta;
-	std::multimap<int, Spring> shearSprings;
-	float bendK = 0.05f;
-	std::map<int, std::vector<Spring>> bendSpringsBeta;
-	std::multimap<int, Spring> bendSprings;
+	//float damping = .5f;
+	float structuralK = .25f;
+	std::vector<Spring>* structuralSpringsBeta;
+	float shearK = .25f;
+	std::vector<Spring>* shearSpringsBeta;
+	float bendK = .25f;
+	std::vector<Spring>* bendSpringsBeta;
 
 	std::vector<bool> staticParticles;
 
@@ -139,8 +136,8 @@ struct Cloth {
 
 	void InitParticles() {
 		//std::cout << "Setting particles" << std::endl;
-		extern bool renderSphere;
-		renderSphere = true;
+		//extern bool renderSphere;
+		//renderSphere = true;
 		sphere = { 2.5f, {0, 2.5f, 0} };
 		sphere.position.x += (static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1;
 		sphere.position.y += (static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1;
@@ -162,6 +159,9 @@ struct Cloth {
 		primaPositions = new glm::vec3[RESOLUTION];
 		primaSpeeds = new glm::vec3[RESOLUTION];
 		forces = new glm::vec3[RESOLUTION];
+		structuralSpringsBeta = new std::vector<Spring>[RESOLUTION];
+		shearSpringsBeta = new std::vector<Spring>[RESOLUTION];
+		bendSpringsBeta = new std::vector<Spring>[RESOLUTION];
 		staticParticles = std::vector<bool>(RESOLUTION, false); // Las partículas que no se actualizan
 		LilSpheres::particleCount = 0;
 		extern bool renderCloth;
@@ -174,6 +174,93 @@ struct Cloth {
 		staticParticles[0] = true;
 		staticParticles[RESOLUTION_X - 1] = true;
 		LilSpheres::particleCount = RESOLUTION;
+	}
+	void SpawnParticle(int i) {
+		glm::vec3 position = PARTICLE_START_POSITION; // La inicializamos en el centro
+		position.x -= (RESOLUTION_X / 2 * PARTICLE_DISTANCE) - PARTICLE_DISTANCE * .5f; // La colocamos en un punto de origen 
+		position.z -= (RESOLUTION_Y / 2 * PARTICLE_DISTANCE) - PARTICLE_DISTANCE * .5f;
+		position.x += i % RESOLUTION_X * PARTICLE_DISTANCE; // Setteamos su posicion original en base al offset con el tamaño del array
+		position.z += ((i / RESOLUTION_X) % RESOLUTION_Y) * PARTICLE_DISTANCE; // Hacemos lo mismo pero con el offset en el otro eje
+
+		///Structural
+
+		/* Al dividir los numeros entre res_x y pasarlos a int, nos da la fila en la que está
+		|0 ,1 ,2 ,3 ,4 | / 5 = 0
+		|5 ,6 ,7 ,8 ,9 | / 5 = 1
+		|10,11,12,13,14| / 5 = 2
+		|15,16,17,18,19| / 5 = 3
+		|20,21,22,23,24| / 5 = 4
+		*/
+
+		if ((int)(i / RESOLUTION_X) == (int)((i + 1) / RESOLUTION_X) && i + 1 < RESOLUTION) {
+			structuralSpringsBeta[i].push_back(Spring(i + 1, PARTICLE_DISTANCE));
+		}
+		//if ((int)(i / RESOLUTION_X) == (int)((i - 1) / RESOLUTION_X) && i - 1 >= 0) {
+		//	structuralSpringsBeta[i].push_back(Spring(i - 1, PARTICLE_DISTANCE));
+		//}
+		if (i + RESOLUTION_X < RESOLUTION) {
+			structuralSpringsBeta[i].push_back(Spring(i + RESOLUTION_X, PARTICLE_DISTANCE));
+		}
+		//if (i - RESOLUTION_X >= 0) {
+		//	structuralSpringsBeta[i].push_back(Spring(i - RESOLUTION_X, PARTICLE_DISTANCE));
+		//}
+
+		///Shear
+		if ((int)((i + 1 + RESOLUTION_X) / RESOLUTION_X) - (int)(i / RESOLUTION_X) == 1 && i + 1 + RESOLUTION_X < RESOLUTION) {
+			shearSpringsBeta[i].push_back(Spring(i + 1 + RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
+		}
+
+		if ((int)((i - 1 + RESOLUTION_X) / RESOLUTION_X) - (int)(i / RESOLUTION_X) == 1 && i - 1 + RESOLUTION_X < RESOLUTION) {
+			shearSpringsBeta[i].push_back(Spring(i - 1 + RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
+		}
+
+		//if ((int)(i / RESOLUTION_X) - (int)((i + 1 - RESOLUTION_X) / RESOLUTION_X) == 1 && i + 1 - RESOLUTION_X >= 0) {
+		//	shearSpringsBeta[i].push_back(Spring(i + 1 - RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
+		//}
+
+		//if ((int)(i / RESOLUTION_X) - (int)((i - 1 - RESOLUTION_X) / RESOLUTION_X) == 1 && i - 1 - RESOLUTION_X >= 0) {
+		//	shearSpringsBeta[i].push_back(Spring(i - 1 - RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
+		//}
+
+
+		///Bend
+		if (i % RESOLUTION_X == 0) { // Está en la zona la izquierda
+			//if (i - 2 * RESOLUTION_X >= 0) {
+			//	bendSpringsBeta[i].push_back(Spring(i - 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
+			//}
+			if (i + 2 * RESOLUTION_X < RESOLUTION) {
+				bendSpringsBeta[i].push_back(Spring(i + 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
+			}
+		}
+		if (i % (RESOLUTION_X) == 13) { // Está en la zona de la derecha
+			//if (i - 2 * RESOLUTION_X >= 0) {
+			//	bendSpringsBeta[i].push_back(Spring(i - 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
+			//}
+
+			if (i + 2 * RESOLUTION_X < RESOLUTION) {
+				bendSpringsBeta[i].push_back(Spring(i + 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
+			}
+		}
+		if (i < RESOLUTION_X) { // Está en la zona de arriba
+			//if (i - 2 >= 0) {
+			//	bendSpringsBeta[i].push_back(Spring(i - 2, PARTICLE_DISTANCE * 2));
+			//}
+			if (i + 2 < RESOLUTION_X) {
+				bendSpringsBeta[i].push_back(Spring(i + 2, PARTICLE_DISTANCE * 2));
+			}
+		}
+		if (i >= RESOLUTION - RESOLUTION_X) { // Está en la zona de abajo
+			//if (i - 2 >= RESOLUTION - RESOLUTION_X) {
+			//	bendSpringsBeta[i].push_back(Spring(i - 2, PARTICLE_DISTANCE * 2));
+			//}
+			if (i + 2 < RESOLUTION) {
+				bendSpringsBeta[i].push_back(Spring(i + 2, PARTICLE_DISTANCE * 2));
+			}
+		}
+
+		forces[i] = { 0, -9.81f, 0 };
+		lastPositions[i] = position;
+		positions[i] = position;
 	}
 	void UpdateParticles(float dt) {
 		if (Replay) {
@@ -203,77 +290,109 @@ struct Cloth {
 		ClothMesh::updateClothMesh(&positions[0].x);
 	}
 
+	void UpdateClothParticle(int i) {
+		glm::vec3 tempvector;
+		for (std::vector<Spring>::iterator it = structuralSpringsBeta[i].begin(); it != structuralSpringsBeta[i].end(); it++)
+		{
+			if (structuralK > 0) {
+				tempvector = fixForces(i, it->ID, structuralK, it->distance);
+				if (!staticParticles[i]) {
+					primaPositions[i] = positions[i];
+					primaPositions[i] += tempvector;
+					UpdateCollisions(i);
+					positions[i] = primaPositions[i];
+				}
+				if (!staticParticles[it->ID]) {
+					primaPositions[it->ID] = positions[it->ID];
+					primaPositions[it->ID] -= tempvector;
+					UpdateCollisions(it->ID);
+					positions[it->ID] = primaPositions[it->ID];
+				}
+			}
+		}
+
+		// Fix forces for Shear
+		for (std::vector<Spring>::iterator it = shearSpringsBeta[i].begin(); it != shearSpringsBeta[i].end(); it++)
+		{
+			if (shearK > 0) {
+				tempvector = fixForces(i, it->ID, shearK, it->distance);
+				if (!staticParticles[i]) {
+					primaPositions[i] = positions[i];
+					primaPositions[i] += tempvector;
+					UpdateCollisions(i);
+					positions[i] = primaPositions[i];
+				}
+				if (!staticParticles[it->ID]) {
+					primaPositions[it->ID] = positions[it->ID];
+					primaPositions[it->ID] -= tempvector;
+					UpdateCollisions(it->ID);
+					positions[it->ID] = primaPositions[it->ID];
+				}
+			}
+		}
+
+		// Fix forces for Bending
+		for (std::vector<Spring>::iterator it = bendSpringsBeta[i].begin(); it != bendSpringsBeta[i].end(); it++)
+		{
+			if (bendK > 0) {
+				tempvector = fixForces(i, it->ID, bendK, it->distance);
+				if (!staticParticles[i]) {
+					primaPositions[i] = positions[i];
+					primaPositions[i] += tempvector;
+					UpdateCollisions(i);
+					positions[i] = primaPositions[i];
+				}
+				if (!staticParticles[it->ID]) {
+					primaPositions[it->ID] = positions[it->ID];
+					primaPositions[it->ID] -= tempvector;
+					UpdateCollisions(it->ID);
+					positions[it->ID] = primaPositions[it->ID];
+				}
+			}
+		}
+	}
+
+	void UpdateCollisions(int i) {
+		extern bool renderSphere;
+		if (renderSphere)
+			if (CheckCollisionWithSphere(sphere, primaPositions[i])) {
+				glm::vec4 plano = getPlaneFromSphere(positions[i], primaPositions[i], sphere);
+				primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
+				if (solverMode == SolverMode::EULER)
+					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
+			}
+		for (int it = 0; it < planes.size(); it++) {
+			// Para evitar problemas, comprobar siempre los planos lo último
+			if (checkWithPlane(positions[i], primaPositions[i], planes[it])) {
+				primaPositions[i] = fixPos(positions[i], primaPositions[i], planes[it]);
+				if (solverMode == SolverMode::EULER)
+					primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], planes[it]);
+			}
+		}
+	}
+
 	void UpdateParticle(int i, float dt) {
-		if (!staticParticles[i]) {
+		UpdateClothParticle(i);
+		if (!staticParticles[i])
+		 {
 			switch (solverMode)
 			{
 			case SolverMode::VERLET:
 			{
-				
-				glm::vec4 plano;
-				// Fix forces for structural
-				forces[i] = acceleration;
-				for (std::vector<Spring>::iterator it = structuralSpringsBeta.at(i).begin(); it != structuralSpringsBeta.at(i).end(); it++)
-				{
-					forces[i] += fixForces(i, it->ID, structuralK, damping, it->distance);
-				}
-				// Fix forces for Shear
-				for (std::vector<Spring>::iterator it = shearSpringsBeta.at(i).begin(); it != shearSpringsBeta.at(i).end(); it++)
-				{
-					forces[i] += fixForces(i, it->ID, shearK, damping, it->distance);
-				}
-				// Fix forces for Bending
+				primaPositions[i] = verletSolver(lastPositions[i], positions[i], acceleration, 1.f, dt);
 
-				for (std::vector<Spring>::iterator it = bendSpringsBeta.at(i).begin(); it != bendSpringsBeta.at(i).end(); it++)
-				{
-					forces[i] += fixForces(i, it->ID, bendK, damping, it->distance);
-				}
-				primaPositions[i] = verletSolver(lastPositions[i], positions[i], forces[i], 1.f, dt);
-				//primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
+				UpdateCollisions(i);
 
-				extern bool renderSphere;
-				if (renderSphere) {
-					if (CheckCollisionWithSphere(sphere, primaPositions[i])) {
-						plano = getPlaneFromSphere(positions[i], primaPositions[i], sphere);
-						primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
-						//primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
-					}
-				}
-				for (int it = 0; it < planes.size(); it++) {
-					// Para evitar problemas, comprobar siempre los planos lo último
-					if (checkWithPlane(positions[i], primaPositions[i], planes[it])) {
-						primaPositions[i] = fixPos(positions[i], primaPositions[i], planes[it]);
-						//primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], planes[it]);
-					}
-				}
-
-				
-
-				//speeds[i] = primaSpeeds[i];
 				lastPositions[i] = positions[i];
 				positions[i] = primaPositions[i];
 			}
 				break;
 			case SolverMode::EULER:
 			{
-				glm::vec4 plano;
 				primaPositions[i] = eulerSolver(positions[i], speeds[i], dt);
 				primaSpeeds[i] = eulerSolver(speeds[i], acceleration, dt);
 
-				extern bool renderSphere;
-				if (renderSphere)
-					if (CheckCollisionWithSphere(sphere, primaPositions[i])) {
-						plano = getPlaneFromSphere(positions[i], primaPositions[i], sphere);
-						primaPositions[i] = fixPos(positions[i], primaPositions[i], plano);
-						primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], plano);
-					}
-				for (int it = 0; it < planes.size(); it++) {
-					// Para evitar problemas, comprobar siempre los planos lo último
-					if (checkWithPlane(positions[i], primaPositions[i], planes[it])) {
-						primaPositions[i] = fixPos(positions[i], primaPositions[i], planes[it]);
-						primaSpeeds[i] = fixSpeed(speeds[i], primaSpeeds[i], planes[it]);
-					}
-				}
+				UpdateCollisions(i);
 
 				speeds[i] = primaSpeeds[i];
 				positions[i] = primaPositions[i];
@@ -284,96 +403,6 @@ struct Cloth {
 			}
 		}
 	}
-	void SpawnParticle(int i) {
-		glm::vec3 position = PARTICLE_START_POSITION; // La inicializamos en el centro
-		position.x -= (RESOLUTION_X / 2 * PARTICLE_DISTANCE) - PARTICLE_DISTANCE * .5f; // La colocamos en un punto de origen 
-		position.z -= (RESOLUTION_Y / 2 * PARTICLE_DISTANCE) - PARTICLE_DISTANCE * .5f; 
-		position.x += i % RESOLUTION_X * PARTICLE_DISTANCE; // Setteamos su posicion original en base al offset con el tamaño del array
-		position.z += ((i / RESOLUTION_X) % RESOLUTION_Y) * PARTICLE_DISTANCE; // Hacemos lo mismo pero con el offset en el otro eje
-
-		///Structural
-
-		/* Al dividir los numeros entre res_x y pasarlos a int, nos da la fila en la que está
-		|0 ,1 ,2 ,3 ,4 | / 5 = 0
-		|5 ,6 ,7 ,8 ,9 | / 5 = 1
-		|10,11,12,13,14| / 5 = 2
-		|15,16,17,18,19| / 5 = 3
-		|20,21,22,23,24| / 5 = 4
-		*/
-		structuralSpringsBeta[i]; // Nos aseguramos que ese valoe esté 
-		if ((int)(i / RESOLUTION_X) == (int)((i + 1) / RESOLUTION_X) && i + 1 < RESOLUTION) {
-			structuralSpringsBeta[i].push_back(Spring(i + 1, PARTICLE_DISTANCE));
-		}
-		if ((int)(i / RESOLUTION_X) == (int)((i - 1) / RESOLUTION_X) && i - 1 >= 0) {
-			structuralSpringsBeta[i].push_back(Spring(i - 1, PARTICLE_DISTANCE));
-		}
-		if (i + RESOLUTION_X < RESOLUTION) {
-			structuralSpringsBeta[i].push_back(Spring(i + RESOLUTION_X, PARTICLE_DISTANCE));
-		}
-		if (i - RESOLUTION_X >= 0) {
-			structuralSpringsBeta[i].push_back(Spring(i - RESOLUTION_X, PARTICLE_DISTANCE));
-		}
-		
-		///Shear
-		shearSpringsBeta[i]; // Nos aseguramos que ese valoe esté inicializado
-		if ((int)((i + 1 + RESOLUTION_X) / RESOLUTION_X) - (int)(i / RESOLUTION_X) == 1 && i + 1 + RESOLUTION_X < RESOLUTION) {
-			shearSpringsBeta[i].push_back(Spring(i + 1 + RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
-		}
-		
-		if ((int)((i - 1 + RESOLUTION_X) / RESOLUTION_X) - (int)(i / RESOLUTION_X) == 1 && i - 1 + RESOLUTION_X < RESOLUTION) {
-			shearSpringsBeta[i].push_back(Spring(i - 1 + RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
-		}
-
-		if ((int)(i / RESOLUTION_X) - (int)((i + 1 - RESOLUTION_X) / RESOLUTION_X) == 1 && i + 1 - RESOLUTION_X >= 0) {
-			shearSpringsBeta[i].push_back(Spring(i + 1 - RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
-		}
-
-		if ((int)(i / RESOLUTION_X) - (int)((i - 1 - RESOLUTION_X) / RESOLUTION_X) == 1 && i - 1 - RESOLUTION_X >= 0) {
-			shearSpringsBeta[i].push_back(Spring(i - 1 - RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
-		}
-
-
-		///Bend --> No usar aun
-
-		bendSpringsBeta[i]; // Nos aseguramos que ese valoe esté inicializado
-		if (i % RESOLUTION_X == 0) { // Está en la zona la izquierda
-			if (i - 2*RESOLUTION_X >= 0) {
-				bendSpringsBeta[i].push_back(Spring(i - 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-			}
-			if (i + 2*RESOLUTION_X < RESOLUTION) {
-				bendSpringsBeta[i].push_back(Spring(i + 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-			}
-		}
-		if (i % (RESOLUTION_X) == 13) { // Está en la zona de la derecha
-			if (i - 2 * RESOLUTION_X >= 0) {
-				bendSpringsBeta[i].push_back(Spring(i - 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-			}
-
-			if (i + 2 * RESOLUTION_X < RESOLUTION) {
-				bendSpringsBeta[i].push_back(Spring(i + 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-			}
-		}
-		if (i < RESOLUTION_X) { // Está en la zona de arriba
-			if (i - 2 >= 0) {
-				bendSpringsBeta[i].push_back(Spring(i - 2, PARTICLE_DISTANCE * 2));
-			}
-			if (i + 2 < RESOLUTION_X) {
-				bendSpringsBeta[i].push_back(Spring(i + 2, PARTICLE_DISTANCE * 2));
-			}
-		} 
-		if (i >= RESOLUTION - RESOLUTION_X) { // Está en la zona de abajo
-			if (i - 2 >= RESOLUTION - RESOLUTION_X) {
-				bendSpringsBeta[i].push_back(Spring(i - 2, PARTICLE_DISTANCE * 2));
-			}
-			if (i + 2 < RESOLUTION) {
-				bendSpringsBeta[i].push_back(Spring(i + 2, PARTICLE_DISTANCE * 2));
-			}
-		}
-
-		forces[i] = { 0, -9.81f, 0 };
-		lastPositions[i] = position;
-		positions[i] = position;
-	}
 	void CleanParticles() {
 		Sphere::cleanupSphere();
 		ClothMesh::cleanupClothMesh();
@@ -383,26 +412,36 @@ struct Cloth {
 		delete[] primaPositions;
 		delete[] primaSpeeds;
 		delete[] forces;
+
+		delete[] structuralSpringsBeta;
+		delete[] shearSpringsBeta;
+		delete[] bendSpringsBeta;
+
 		staticParticles.clear();
-		structuralSprings.clear();
-		shearSprings.clear();
-		bendSprings.clear();
 	}
 	void ResetParticles() {
 		aliveTime = 0;
 		CleanParticles();
 		InitParticles();
 	}
-	glm::vec3 fixForces(int i, int j, float ke, float kd, float distance) {
-		if (i == j)
-			return glm::vec3(0, 0, 0);
+	glm::vec3 fixForces(int i, int j, float k, float distance) {
 		glm::vec3 resultantForce = glm::vec3(0, 0, 0);
-		// F = -(ke(||P1-P2|| - Lengh) + kd(v1 - v2) * {(P1-P2)/(||P1-P2||)}) *{(P1-P2)/(||P1-P2||)}
-		float mag = glm::length(positions[i] - positions[j]);
-		float _distance = glm::distance(positions[i], positions[j]);
-		glm::vec3 abs = glm::abs(positions[i] - positions[j]);
-		glm::vec3 dirVect = positions[i] - positions[j]; // Nota, se puede multiplicar vect por float pero no vect por int .-.
-		resultantForce = -(((ke * (mag - distance)) + (kd * (speeds[i] - speeds[j])) * (dirVect / mag))) * (dirVect / mag);
+		if (i == j)
+			return resultantForce;
+
+		//// F = -(ke(||P1-P2|| - Lengh) + kd(v1 - v2) * {(P1-P2)/(||P1-P2||)}) *{(P1-P2)/(||P1-P2||)}
+		//float mag = glm::length(positions[i] - positions[j]);
+		//float _distance = glm::distance(positions[i], positions[j]);
+		//glm::vec3 abs = glm::abs(positions[i] - positions[j]);
+		//glm::vec3 dirVect = positions[i] - positions[j]; // Nota, se puede multiplicar vect por float pero no vect por int .-.
+		//resultantForce = -(((ke * (mag - distance)) + (kd * (speeds[i] - speeds[j])) * (dirVect / mag))) * (dirVect / mag);
+
+		float dist = glm::distance(positions[i], positions[j]);
+
+		float diff = (distance - dist) / dist;
+
+		resultantForce = (positions[i] - positions[j]) * k * diff;
+
 
 		return resultantForce;
 	}
@@ -448,9 +487,10 @@ void GUI() {
 	ImGui::DragFloat3("Start position ", &parts.PARTICLE_START_POSITION[0], .01f);
 	ImGui::DragFloat("Cloth distance ", &parts.PARTICLE_DISTANCE, .01f);
 	ImGui::Spacing();
-	ImGui::DragFloat("Structural K ", &parts.structuralK, .01f);
-	ImGui::DragFloat("Shear K ", &parts.shearK, .01f);
-	ImGui::DragFloat("Bend K ", &parts.bendK, .01f);
+	//ImGui::DragFloat("Damping ", &parts.damping, .01f);
+	ImGui::SliderFloat("Structural K ", &parts.structuralK, 0, .5f);
+	ImGui::SliderFloat("Shear K ", &parts.shearK, 0, .5f);
+	ImGui::SliderFloat("Bend K ", &parts.bendK, 0, .5f);
 
 	ImGui::Spacing();
 	if (ImGui::Button("Reset")) {
@@ -474,6 +514,8 @@ void GUI() {
 
 void PhysicsInit() {
 	srand(time(NULL));
+	extern bool renderSphere;
+	renderSphere = true;
 	parts.InitParticles();
 }
 
