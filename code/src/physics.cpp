@@ -106,11 +106,11 @@ struct Cloth {
 	glm::vec3* forces;
 
 	float damping = 50.f;
-	float structuralK = 500.0f;
+	float structuralK = 1000.0f;
 	std::vector<Spring>* structuralSpringsBeta;
-	float shearK = 500.f;
+	float shearK = 1000.f;
 	std::vector<Spring>* shearSpringsBeta;
-	float bendK = 500.f;
+	float bendK = 1000.f;
 	std::vector<Spring>* bendSpringsBeta;
 
 	float overDistance = 1.25f;
@@ -268,6 +268,11 @@ struct Cloth {
 		default:
 			for (int i = 0; i < RESOLUTION; i++)
 			{
+				UpdateClothParticle(i);
+			}
+
+			for (int i = 0; i < RESOLUTION; i++)
+			{
 				UpdateParticle(i, dt);
 			}
 			break;
@@ -282,26 +287,21 @@ struct Cloth {
 		for (std::vector<Spring>::iterator it = structuralSpringsBeta[i].begin(); it != structuralSpringsBeta[i].end(); it++)
 		{
 			tempvector += fixForces(i, it->ID, structuralK, damping, it->distance);
-	
 		}
 
 		// Fix forces for Shear
 		for (std::vector<Spring>::iterator it = shearSpringsBeta[i].begin(); it != shearSpringsBeta[i].end(); it++)
 		{
-			tempvector += fixForces(i, it->ID, shearK, damping, it->distance);
-
-
+			//forces[i] += fixForces(i, it->ID, shearK, damping, it->distance);
 		}
-
+		
 		// Fix forces for Bending
 		for (std::vector<Spring>::iterator it = bendSpringsBeta[i].begin(); it != bendSpringsBeta[i].end(); it++)
 		{
-			tempvector += fixForces(i, it->ID, bendK, damping, it->distance);
+			//forces[i] += fixForces(i, it->ID, bendK, damping, it->distance);
 		}
-		
-		if(i == 10)
-			//std::cout << tempvector.x << ", " << tempvector.y << ", " << tempvector.z << std::endl;
 		forces[i] += tempvector;
+		
 	}
 
 	void UpdateCollisions(int i) {
@@ -324,7 +324,6 @@ struct Cloth {
 	}
 
 	void UpdateParticle(int i, float dt) {
-		UpdateClothParticle(i);
 		if (!staticParticles[i])
 		 {
 			switch (solverMode)
@@ -332,11 +331,11 @@ struct Cloth {
 			case SolverMode::VERLET:
 			{
 				primaPositions[i] = verletSolver(lastPositions[i], positions[i], forces[i], 1.f, dt);
-				primaSpeeds[i] = verletSolverSpeed(lastPositions[i], positions[i], dt);
+				lastPositions[i] = positions[i];
+				speeds[i] = verletSolverSpeed(positions[i], primaPositions[i], dt);
 				UpdateCollisions(i);
 
-				lastPositions[i] = positions[i];
-				speeds[i] = primaSpeeds[i];
+				
 				positions[i] = primaPositions[i];
 			}
 				break;
@@ -383,12 +382,13 @@ struct Cloth {
 			return resultantForce;
 
 		// F = -(ke(||P1-P2|| - Length) + kd(v1 - v2) * {(P1-P2)/(||P1-P2||)}) *{(P1-P2)/(||P1-P2||)}
-		float mag = glm::length(positions[i] - positions[j]);
-		float _distance = glm::distance(positions[i], positions[j]);
-		
 		glm::vec3 dirVect = positions[i] - positions[j]; // Nota, se puede multiplicar vect por float pero no vect por int .-.
-		resultantForce = -(((ke * (mag - distance)) + (kd * (speeds[i] - speeds[j])) * (dirVect / mag))) * (dirVect / mag);
-	
+		float mag = glm::length<float>(dirVect);
+		glm::vec3 tmpVec = dirVect / mag;
+		float partA = ke * (mag - distance);
+		float partB = glm::dot<float>(kd * (speeds[i] - speeds[i - 1]), tmpVec);
+		resultantForce = -(partA + partB) * tmpVec;
+
 		
 
 		return resultantForce;
@@ -561,8 +561,8 @@ glm::vec3 eulerSolver(const glm::vec3 origin, const glm::vec3 end, const float _
 glm::vec3 verletSolver(const glm::vec3 lastPos, const glm::vec3 newPos, const glm::vec3 force, const float mass_, const float dt_) {
 	return newPos + (newPos - lastPos) + (force / mass_) * ((dt_*0.1f) * (dt_*0.1f));
 }
-glm::vec3 verletSolverSpeed(const glm::vec3 lastPos, const glm::vec3 newPos, const float dt_) {
-	return (lastPos - newPos) / dt_ * 0.1f;
+glm::vec3 verletSolverSpeed(const glm::vec3 currentPos, const glm::vec3 primaPos, const float dt_) {
+	return (primaPos - currentPos) / (dt_ * 0.1f);
 }
 
 bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano) {
