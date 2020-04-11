@@ -18,8 +18,9 @@
 #endif
 
 float elasticity = 0.75f; // Aviso, bajar esto de 0.6 puede causar partículas que se salten colisiones si la aceleracion es muy alta.
+int numIterations = 10; // TODO Meter en la UI
 enum class ExecutionMode{STANDARD, PARALLEL};
-ExecutionMode exMode = ExecutionMode::STANDARD;
+ExecutionMode exMode = ExecutionMode::PARALLEL;
 #if ppl == 1
 static const char* ExecutionModeString[]{ "Sequential", "Parallel" };
 #else
@@ -40,7 +41,6 @@ glm::vec3 verletSolverSpeed(const glm::vec3 lastPos, const glm::vec3 newPos, con
 bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano);
 glm::vec3 fixPos(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano);
 glm::vec3 fixSpeed(glm::vec3 originalSpeed, glm::vec3 endSpeed, glm::vec4 plano);
-
 namespace Sphere {
 	extern void setupSphere(glm::vec3 pos, float radius);
 	extern void cleanupSphere();
@@ -93,7 +93,6 @@ struct Cloth {
 	glm::vec3  PARTICLE_START_POSITION = { 0,6,0 };
 	float  PARTICLE_DISTANCE = .3f;
 	bool Replay = true;
-
 	int const RESOLUTION_X = 14;
 	int const RESOLUTION_Y = 18;
 	int const RESOLUTION = RESOLUTION_X * RESOLUTION_Y;
@@ -105,8 +104,8 @@ struct Cloth {
 	glm::vec3* primaSpeeds;
 	glm::vec3* forces;
 
-	float damping = 50.f;
-	float structuralK = 1000.0f;
+	float damping = 50.0f; // TODO Meter esto en la UI -> Valores 0 - 100
+	float structuralK = 1000.0f; // Esto en laUI -> Valores 750 - 1250
 	std::vector<Spring>* structuralSpringsBeta;
 	float shearK = 1000.f;
 	std::vector<Spring>* shearSpringsBeta;
@@ -234,7 +233,6 @@ struct Cloth {
 			bendSpringsBeta[i].push_back(Spring(i + 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
 		}
 
-		//if (i < RESOLUTION_X) { // Está en la zona de arriba
 		if ((int)(i / RESOLUTION_X) == (int)((i - 2) / RESOLUTION_X) && i - 2 >= 0) {
 			bendSpringsBeta[i].push_back(Spring(i - 2, PARTICLE_DISTANCE * 2));
 		}
@@ -250,7 +248,7 @@ struct Cloth {
 	void UpdateParticles(float dt) {
 
 		if (Replay) {
-			aliveTime += dt*0.1f;
+			aliveTime += dt / numIterations;
 			if (aliveTime > MAX_TIME) {
 				ResetParticles();
 			}
@@ -260,6 +258,9 @@ struct Cloth {
 		{
 		case ExecutionMode::PARALLEL:
 #if ppl == 1
+			Concurrency::parallel_for(0, (int)RESOLUTION, [this, dt](int i) {
+				UpdateClothParticle(i);
+				});
 			Concurrency::parallel_for(0, (int)RESOLUTION, [this, dt](int i) {
 				UpdateParticle(i, dt);
 				});
@@ -282,8 +283,7 @@ struct Cloth {
 	}
 
 	void UpdateClothParticle(int i) {
-		glm::vec3 tempvector = glm::vec3(0,0,0);
-		forces[i] = acceleration;
+		glm::vec3 tempvector = forces[i] = glm::vec3(0,0,0);
 		for (std::vector<Spring>::iterator it = structuralSpringsBeta[i].begin(); it != structuralSpringsBeta[i].end(); it++)
 		{
 			tempvector += fixForces(i, it->ID, structuralK, damping, it->distance);
@@ -292,15 +292,15 @@ struct Cloth {
 		// Fix forces for Shear
 		for (std::vector<Spring>::iterator it = shearSpringsBeta[i].begin(); it != shearSpringsBeta[i].end(); it++)
 		{
-			//forces[i] += fixForces(i, it->ID, shearK, damping, it->distance);
+			forces[i] += fixForces(i, it->ID, shearK, damping, it->distance);
 		}
 		
 		// Fix forces for Bending
 		for (std::vector<Spring>::iterator it = bendSpringsBeta[i].begin(); it != bendSpringsBeta[i].end(); it++)
 		{
-			//forces[i] += fixForces(i, it->ID, bendK, damping, it->distance);
+			forces[i] += fixForces(i, it->ID, bendK, damping, it->distance);
 		}
-		forces[i] += tempvector;
+		forces[i] = tempvector + acceleration;
 		
 	}
 
@@ -334,9 +334,9 @@ struct Cloth {
 				lastPositions[i] = positions[i];
 				speeds[i] = verletSolverSpeed(positions[i], primaPositions[i], dt);
 				UpdateCollisions(i);
+				positions[i] = primaPositions[i];
 
 				
-				positions[i] = primaPositions[i];
 			}
 				break;
 			case SolverMode::EULER:
@@ -468,7 +468,7 @@ void PhysicsInit() {
 }
 
 void PhysicsUpdate(float dt) {
-	for (int i = 0; i < 1; i++) {
+	for (int i = 0; i < numIterations; i++) {
 		parts.UpdateParticles(dt);
 	}
 }
@@ -559,10 +559,10 @@ glm::vec3 eulerSolver(const glm::vec3 origin, const glm::vec3 end, const float _
 }
 
 glm::vec3 verletSolver(const glm::vec3 lastPos, const glm::vec3 newPos, const glm::vec3 force, const float mass_, const float dt_) {
-	return newPos + (newPos - lastPos) + (force / mass_) * ((dt_*0.1f) * (dt_*0.1f));
+	return newPos + (newPos - lastPos) + (force / mass_) * glm::pow((dt_ / numIterations), 2);
 }
 glm::vec3 verletSolverSpeed(const glm::vec3 currentPos, const glm::vec3 primaPos, const float dt_) {
-	return (primaPos - currentPos) / (dt_ * 0.1f);
+	return (primaPos - currentPos) / (dt_ / numIterations);
 }
 
 bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano) {
