@@ -35,6 +35,8 @@ glm::vec3 GetCascadeRotation(glm::vec3 dir, float angle);
 glm::vec3 getPerpVector(glm::vec3 _a, glm::vec3 _b);
 glm::vec3 eulerSolver(const glm::vec3 origin, const glm::vec3 end, const float _dt);
 glm::vec3 verletSolver(const glm::vec3 lastPos, const glm::vec3 newPos, const glm::vec3 force, const float mass_, const float dt_);
+glm::vec3 verletSolverSpeed(const glm::vec3 lastPos, const glm::vec3 newPos, const float dt_);
+
 bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano);
 glm::vec3 fixPos(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano);
 glm::vec3 fixSpeed(glm::vec3 originalSpeed, glm::vec3 endSpeed, glm::vec4 plano);
@@ -103,14 +105,15 @@ struct Cloth {
 	glm::vec3* primaSpeeds;
 	glm::vec3* forces;
 
-	//float damping = .5f;
-	float structuralK = .25f;
+	float damping = 50.f;
+	float structuralK = 500.0f;
 	std::vector<Spring>* structuralSpringsBeta;
-	float shearK = .25f;
+	float shearK = 500.f;
 	std::vector<Spring>* shearSpringsBeta;
-	float bendK = .25f;
+	float bendK = 500.f;
 	std::vector<Spring>* bendSpringsBeta;
 
+	float overDistance = 1.25f;
 	std::vector<bool> staticParticles;
 
 	float aliveTime = 0;
@@ -195,15 +198,15 @@ struct Cloth {
 		if ((int)(i / RESOLUTION_X) == (int)((i + 1) / RESOLUTION_X) && i + 1 < RESOLUTION) {
 			structuralSpringsBeta[i].push_back(Spring(i + 1, PARTICLE_DISTANCE));
 		}
-		//if ((int)(i / RESOLUTION_X) == (int)((i - 1) / RESOLUTION_X) && i - 1 >= 0) {
-		//	structuralSpringsBeta[i].push_back(Spring(i - 1, PARTICLE_DISTANCE));
-		//}
+		if ((int)(i / RESOLUTION_X) == (int)((i - 1) / RESOLUTION_X) && i - 1 >= 0) {
+			structuralSpringsBeta[i].push_back(Spring(i - 1, PARTICLE_DISTANCE));
+		}
 		if (i + RESOLUTION_X < RESOLUTION) {
 			structuralSpringsBeta[i].push_back(Spring(i + RESOLUTION_X, PARTICLE_DISTANCE));
 		}
-		//if (i - RESOLUTION_X >= 0) {
-		//	structuralSpringsBeta[i].push_back(Spring(i - RESOLUTION_X, PARTICLE_DISTANCE));
-		//}
+		if (i - RESOLUTION_X >= 0) {
+			structuralSpringsBeta[i].push_back(Spring(i - RESOLUTION_X, PARTICLE_DISTANCE));
+		}
 
 		///Shear
 		if ((int)((i + 1 + RESOLUTION_X) / RESOLUTION_X) - (int)(i / RESOLUTION_X) == 1 && i + 1 + RESOLUTION_X < RESOLUTION) {
@@ -214,57 +217,40 @@ struct Cloth {
 			shearSpringsBeta[i].push_back(Spring(i - 1 + RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
 		}
 
-		//if ((int)(i / RESOLUTION_X) - (int)((i + 1 - RESOLUTION_X) / RESOLUTION_X) == 1 && i + 1 - RESOLUTION_X >= 0) {
-		//	shearSpringsBeta[i].push_back(Spring(i + 1 - RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
-		//}
+		if ((int)(i / RESOLUTION_X) - (int)((i + 1 - RESOLUTION_X) / RESOLUTION_X) == 1 && i + 1 - RESOLUTION_X >= 0) {
+			shearSpringsBeta[i].push_back(Spring(i + 1 - RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
+		}
 
-		//if ((int)(i / RESOLUTION_X) - (int)((i - 1 - RESOLUTION_X) / RESOLUTION_X) == 1 && i - 1 - RESOLUTION_X >= 0) {
-		//	shearSpringsBeta[i].push_back(Spring(i - 1 - RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
-		//}
+		if ((int)(i / RESOLUTION_X) - (int)((i - 1 - RESOLUTION_X) / RESOLUTION_X) == 1 && i - 1 - RESOLUTION_X >= 0) {
+			shearSpringsBeta[i].push_back(Spring(i - 1 - RESOLUTION_X, sqrtf(PARTICLE_DISTANCE * PARTICLE_DISTANCE + PARTICLE_DISTANCE * PARTICLE_DISTANCE)));
+		}
 
 
 		///Bend
-		if (i % RESOLUTION_X == 0) { // Está en la zona la izquierda
-			//if (i - 2 * RESOLUTION_X >= 0) {
-			//	bendSpringsBeta[i].push_back(Spring(i - 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-			//}
-			if (i + 2 * RESOLUTION_X < RESOLUTION) {
-				bendSpringsBeta[i].push_back(Spring(i + 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-			}
+		if ((int)(i / RESOLUTION_X) - (int)((i - 2 * RESOLUTION_X) / RESOLUTION_X) == 2 && i - 2 * RESOLUTION_X >= 0) {
+			bendSpringsBeta[i].push_back(Spring(i - 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
 		}
-		if (i % (RESOLUTION_X) == 13) { // Está en la zona de la derecha
-			//if (i - 2 * RESOLUTION_X >= 0) {
-			//	bendSpringsBeta[i].push_back(Spring(i - 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-			//}
+		if ((int)(i / RESOLUTION_X) - (int)((i + 2 * RESOLUTION_X) / RESOLUTION_X) == -2 && i + 2 * RESOLUTION_X < RESOLUTION) {
+			bendSpringsBeta[i].push_back(Spring(i + 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
+		}
 
-			if (i + 2 * RESOLUTION_X < RESOLUTION) {
-				bendSpringsBeta[i].push_back(Spring(i + 2 * RESOLUTION_X, PARTICLE_DISTANCE * 2));
-			}
+		//if (i < RESOLUTION_X) { // Está en la zona de arriba
+		if ((int)(i / RESOLUTION_X) == (int)((i - 2) / RESOLUTION_X) && i - 2 >= 0) {
+			bendSpringsBeta[i].push_back(Spring(i - 2, PARTICLE_DISTANCE * 2));
 		}
-		if (i < RESOLUTION_X) { // Está en la zona de arriba
-			//if (i - 2 >= 0) {
-			//	bendSpringsBeta[i].push_back(Spring(i - 2, PARTICLE_DISTANCE * 2));
-			//}
-			if (i + 2 < RESOLUTION_X) {
-				bendSpringsBeta[i].push_back(Spring(i + 2, PARTICLE_DISTANCE * 2));
-			}
+		if ((int)(i / RESOLUTION_X) == (int)((i + 2) / RESOLUTION_X) && i + 2 < RESOLUTION) {
+			bendSpringsBeta[i].push_back(Spring(i + 2, PARTICLE_DISTANCE * 2));
 		}
-		if (i >= RESOLUTION - RESOLUTION_X) { // Está en la zona de abajo
-			//if (i - 2 >= RESOLUTION - RESOLUTION_X) {
-			//	bendSpringsBeta[i].push_back(Spring(i - 2, PARTICLE_DISTANCE * 2));
-			//}
-			if (i + 2 < RESOLUTION) {
-				bendSpringsBeta[i].push_back(Spring(i + 2, PARTICLE_DISTANCE * 2));
-			}
-		}
+
 
 		forces[i] = { 0, -9.81f, 0 };
 		lastPositions[i] = position;
 		positions[i] = position;
 	}
 	void UpdateParticles(float dt) {
+
 		if (Replay) {
-			aliveTime += dt;
+			aliveTime += dt*0.1f;
 			if (aliveTime > MAX_TIME) {
 				ResetParticles();
 			}
@@ -291,65 +277,31 @@ struct Cloth {
 	}
 
 	void UpdateClothParticle(int i) {
-		glm::vec3 tempvector;
+		glm::vec3 tempvector = glm::vec3(0,0,0);
+		forces[i] = acceleration;
 		for (std::vector<Spring>::iterator it = structuralSpringsBeta[i].begin(); it != structuralSpringsBeta[i].end(); it++)
 		{
-			if (structuralK > 0) {
-				tempvector = fixForces(i, it->ID, structuralK, it->distance);
-				if (!staticParticles[i]) {
-					primaPositions[i] = positions[i];
-					primaPositions[i] += tempvector;
-					UpdateCollisions(i);
-					positions[i] = primaPositions[i];
-				}
-				if (!staticParticles[it->ID]) {
-					primaPositions[it->ID] = positions[it->ID];
-					primaPositions[it->ID] -= tempvector;
-					UpdateCollisions(it->ID);
-					positions[it->ID] = primaPositions[it->ID];
-				}
-			}
+			tempvector += fixForces(i, it->ID, structuralK, damping, it->distance);
+	
 		}
 
 		// Fix forces for Shear
 		for (std::vector<Spring>::iterator it = shearSpringsBeta[i].begin(); it != shearSpringsBeta[i].end(); it++)
 		{
-			if (shearK > 0) {
-				tempvector = fixForces(i, it->ID, shearK, it->distance);
-				if (!staticParticles[i]) {
-					primaPositions[i] = positions[i];
-					primaPositions[i] += tempvector;
-					UpdateCollisions(i);
-					positions[i] = primaPositions[i];
-				}
-				if (!staticParticles[it->ID]) {
-					primaPositions[it->ID] = positions[it->ID];
-					primaPositions[it->ID] -= tempvector;
-					UpdateCollisions(it->ID);
-					positions[it->ID] = primaPositions[it->ID];
-				}
-			}
+			tempvector += fixForces(i, it->ID, shearK, damping, it->distance);
+
+
 		}
 
 		// Fix forces for Bending
 		for (std::vector<Spring>::iterator it = bendSpringsBeta[i].begin(); it != bendSpringsBeta[i].end(); it++)
 		{
-			if (bendK > 0) {
-				tempvector = fixForces(i, it->ID, bendK, it->distance);
-				if (!staticParticles[i]) {
-					primaPositions[i] = positions[i];
-					primaPositions[i] += tempvector;
-					UpdateCollisions(i);
-					positions[i] = primaPositions[i];
-				}
-				if (!staticParticles[it->ID]) {
-					primaPositions[it->ID] = positions[it->ID];
-					primaPositions[it->ID] -= tempvector;
-					UpdateCollisions(it->ID);
-					positions[it->ID] = primaPositions[it->ID];
-				}
-			}
+			tempvector += fixForces(i, it->ID, bendK, damping, it->distance);
 		}
+		
+		if(i == 10)
+			//std::cout << tempvector.x << ", " << tempvector.y << ", " << tempvector.z << std::endl;
+		forces[i] += tempvector;
 	}
 
 	void UpdateCollisions(int i) {
@@ -379,11 +331,12 @@ struct Cloth {
 			{
 			case SolverMode::VERLET:
 			{
-				primaPositions[i] = verletSolver(lastPositions[i], positions[i], acceleration, 1.f, dt);
-
+				primaPositions[i] = verletSolver(lastPositions[i], positions[i], forces[i], 1.f, dt);
+				primaSpeeds[i] = verletSolverSpeed(lastPositions[i], positions[i], dt);
 				UpdateCollisions(i);
 
 				lastPositions[i] = positions[i];
+				speeds[i] = primaSpeeds[i];
 				positions[i] = primaPositions[i];
 			}
 				break;
@@ -424,24 +377,19 @@ struct Cloth {
 		CleanParticles();
 		InitParticles();
 	}
-	glm::vec3 fixForces(int i, int j, float k, float distance) {
+	glm::vec3 fixForces(int i, int j, float ke, float kd, float distance) {
 		glm::vec3 resultantForce = glm::vec3(0, 0, 0);
 		if (i == j)
 			return resultantForce;
 
-		//// F = -(ke(||P1-P2|| - Lengh) + kd(v1 - v2) * {(P1-P2)/(||P1-P2||)}) *{(P1-P2)/(||P1-P2||)}
-		//float mag = glm::length(positions[i] - positions[j]);
-		//float _distance = glm::distance(positions[i], positions[j]);
-		//glm::vec3 abs = glm::abs(positions[i] - positions[j]);
-		//glm::vec3 dirVect = positions[i] - positions[j]; // Nota, se puede multiplicar vect por float pero no vect por int .-.
-		//resultantForce = -(((ke * (mag - distance)) + (kd * (speeds[i] - speeds[j])) * (dirVect / mag))) * (dirVect / mag);
-
-		float dist = glm::distance(positions[i], positions[j]);
-
-		float diff = (distance - dist) / dist;
-
-		resultantForce = (positions[i] - positions[j]) * k * diff;
-
+		// F = -(ke(||P1-P2|| - Length) + kd(v1 - v2) * {(P1-P2)/(||P1-P2||)}) *{(P1-P2)/(||P1-P2||)}
+		float mag = glm::length(positions[i] - positions[j]);
+		float _distance = glm::distance(positions[i], positions[j]);
+		
+		glm::vec3 dirVect = positions[i] - positions[j]; // Nota, se puede multiplicar vect por float pero no vect por int .-.
+		resultantForce = -(((ke * (mag - distance)) + (kd * (speeds[i] - speeds[j])) * (dirVect / mag))) * (dirVect / mag);
+	
+		
 
 		return resultantForce;
 	}
@@ -520,7 +468,9 @@ void PhysicsInit() {
 }
 
 void PhysicsUpdate(float dt) {
-	parts.UpdateParticles(dt);
+	for (int i = 0; i < 1; i++) {
+		parts.UpdateParticles(dt);
+	}
 }
 
 void PhysicsCleanup() {
@@ -609,7 +559,10 @@ glm::vec3 eulerSolver(const glm::vec3 origin, const glm::vec3 end, const float _
 }
 
 glm::vec3 verletSolver(const glm::vec3 lastPos, const glm::vec3 newPos, const glm::vec3 force, const float mass_, const float dt_) {
-	return newPos + (newPos - lastPos) + (force / mass_) * (dt_ * dt_);
+	return newPos + (newPos - lastPos) + (force / mass_) * ((dt_*0.1f) * (dt_*0.1f));
+}
+glm::vec3 verletSolverSpeed(const glm::vec3 lastPos, const glm::vec3 newPos, const float dt_) {
+	return (lastPos - newPos) / dt_ * 0.1f;
 }
 
 bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano) {
