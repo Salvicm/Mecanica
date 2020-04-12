@@ -18,7 +18,7 @@
 #endif
 
 float elasticity = 0.75f; // Aviso, bajar esto de 0.6 puede causar partículas que se salten colisiones si la aceleracion es muy alta.
-int numIterations = 10; // TODO Meter en la UI
+int numIterations = 10; 
 enum class ExecutionMode{STANDARD, PARALLEL};
 ExecutionMode exMode = ExecutionMode::PARALLEL;
 #if ppl == 1
@@ -104,7 +104,7 @@ struct Cloth {
 	glm::vec3* primaSpeeds;
 	glm::vec3* forces;
 
-	float damping = 50.0f; // TODO Meter esto en la UI -> Valores 0 - 100
+	float damping = 50.0f; 
 	float structuralK = 1000.0f; // Esto en laUI -> Valores 750 - 1250
 	std::vector<Spring>* structuralSpringsBeta;
 	float shearK = 1000.f;
@@ -414,12 +414,15 @@ void GUI() {
 #if ppl == 0
 	if (exMode == ExecutionMode::PARALLEL) exMode = ExecutionMode::STANDARD;
 #endif
+	/*
 	SolverMode lastSolver = solverMode;
 	ImGui::Combo("Solver mode", (int*)(&solverMode), SolverModeString, 2);
 	if (lastSolver != solverMode) parts.ResetParticles();
 	if(solverMode == SolverMode::EULER)
 		ImGui::SliderFloat("Elasticity", &elasticity, .5f, 1);
+		*/
 	ImGui::DragFloat3("Global Acceleration", &parts.acceleration[0], .01f);
+	ImGui::SliderInt("Iterations per frame", &numIterations, 1, 50);
 
 	ImGui::NewLine();
 	ImGui::Text("Cloth options:");
@@ -435,10 +438,10 @@ void GUI() {
 	ImGui::DragFloat3("Start position ", &parts.PARTICLE_START_POSITION[0], .01f);
 	ImGui::DragFloat("Cloth distance ", &parts.PARTICLE_DISTANCE, .01f);
 	ImGui::Spacing();
-	//ImGui::DragFloat("Damping ", &parts.damping, .01f);
-	ImGui::SliderFloat("Structural K ", &parts.structuralK, 0, .5f);
-	ImGui::SliderFloat("Shear K ", &parts.shearK, 0, .5f);
-	ImGui::SliderFloat("Bend K ", &parts.bendK, 0, .5f);
+	ImGui::SliderFloat("Damping ", &parts.damping, 0, 100);
+	ImGui::SliderFloat("Structural K ", &parts.structuralK, 750, 1250);
+	ImGui::SliderFloat("Shear K ", &parts.shearK, 750, 1250);
+	ImGui::SliderFloat("Bend K ", &parts.bendK, 750, 1250);
 
 	ImGui::Spacing();
 	if (ImGui::Button("Reset")) {
