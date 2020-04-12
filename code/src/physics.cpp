@@ -90,7 +90,7 @@ struct Cloth {
 	Spheres sphere = { 2.5f, {0, 2.5f, -0} };
 	std::vector<glm::vec4> planes;
 	glm::vec3 acceleration = { 0, -9.81f, 0 };
-	glm::vec3  PARTICLE_START_POSITION = { 0,6,0 };
+	glm::vec3  PARTICLE_START_POSITION = { 0,9,0 };
 	float  PARTICLE_DISTANCE = .3f;
 	bool Replay = true;
 	int const RESOLUTION_X = 14;
@@ -422,7 +422,8 @@ void GUI() {
 		ImGui::SliderFloat("Elasticity", &elasticity, .5f, 1);
 		*/
 	ImGui::DragFloat3("Global Acceleration", &parts.acceleration[0], .01f);
-	ImGui::SliderInt("Iterations per frame", &numIterations, 1, 50);
+	ImGui::SliderFloat("Elasticity", &elasticity, .5f, 1.5f);
+	ImGui::SliderInt("Iterations per frame", &numIterations, 5, 25);
 
 	ImGui::NewLine();
 	ImGui::Text("Cloth options:");
@@ -435,8 +436,13 @@ void GUI() {
 		ImGui::Text("Reset in %.1f seconds", parts.MAX_TIME - parts.aliveTime);
 	}
 	ImGui::Spacing();
+	glm::vec3 oldPos = parts.PARTICLE_START_POSITION;
+	float oldDistance = parts.PARTICLE_DISTANCE;
 	ImGui::DragFloat3("Start position ", &parts.PARTICLE_START_POSITION[0], .01f);
-	ImGui::DragFloat("Cloth distance ", &parts.PARTICLE_DISTANCE, .01f);
+	ImGui::SliderFloat("Cloth distance ", &parts.PARTICLE_DISTANCE, .01f, .5f);
+	if (oldPos != parts.PARTICLE_START_POSITION || oldDistance != parts.PARTICLE_DISTANCE) {
+		parts.ResetParticles();
+	}
 	ImGui::Spacing();
 	ImGui::SliderFloat("Damping ", &parts.damping, 0, 100);
 	ImGui::SliderFloat("Structural K ", &parts.structuralK, 750, 1250);
@@ -577,7 +583,7 @@ bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const g
 glm::vec3 fixPos(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano) {
 	glm::vec3 newPos = { 0,0,0 };
 	glm::vec3 normalPlano = { plano.x, plano.y, plano.z };
-	newPos = (endPos - (2 * (glm::dot(endPos, normalPlano) + plano.w)) * normalPlano); // Podr�amos usar glm::reflect
+	newPos = (endPos - ((1+elasticity) * (glm::dot(endPos, normalPlano) + plano.w)) * normalPlano); // Podr�amos usar glm::reflect
 	return newPos;
 
 }
