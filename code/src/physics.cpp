@@ -104,12 +104,12 @@ struct Cloth {
 	glm::vec3* primaSpeeds;
 	glm::vec3* forces;
 
-	float damping = 50.0f; 
-	float structuralK = 1000.0f; // Esto en laUI -> Valores 750 - 1250
+	float damping = 5.0f; 
+	float structuralK = 750.0f; // Esto en laUI -> Valores 750 - 1250
 	std::vector<Spring>* structuralSpringsBeta;
-	float shearK = 1000.f;
+	float shearK = 750.f;
 	std::vector<Spring>* shearSpringsBeta;
-	float bendK = 1000.f;
+	float bendK = 750.f;
 	std::vector<Spring>* bendSpringsBeta;
 
 	float overDistance = 1.25f;
@@ -292,13 +292,13 @@ struct Cloth {
 		// Fix forces for Shear
 		for (std::vector<Spring>::iterator it = shearSpringsBeta[i].begin(); it != shearSpringsBeta[i].end(); it++)
 		{
-			forces[i] += fixForces(i, it->ID, shearK, damping, it->distance);
+			tempvector += fixForces(i, it->ID, shearK, damping, it->distance);
 		}
 		
 		// Fix forces for Bending
 		for (std::vector<Spring>::iterator it = bendSpringsBeta[i].begin(); it != bendSpringsBeta[i].end(); it++)
 		{
-			forces[i] += fixForces(i, it->ID, bendK, damping, it->distance);
+			tempvector += fixForces(i, it->ID, bendK, damping, it->distance);
 		}
 		forces[i] = tempvector + acceleration;
 		
@@ -444,7 +444,7 @@ void GUI() {
 		parts.ResetParticles();
 	}
 	ImGui::Spacing();
-	ImGui::SliderFloat("Damping ", &parts.damping, 0, 100);
+	ImGui::SliderFloat("Damping ", &parts.damping, 0, 10);
 	ImGui::SliderFloat("Structural K ", &parts.structuralK, 750, 1250);
 	ImGui::SliderFloat("Shear K ", &parts.shearK, 750, 1250);
 	ImGui::SliderFloat("Bend K ", &parts.bendK, 750, 1250);
