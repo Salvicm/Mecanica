@@ -5,11 +5,11 @@
 #include <glm\gtc\type_ptr.hpp>
 #include <GL\glew.h>
 #include <glm\gtc\matrix_transform.hpp>
-#include <glm/gtx/closest_point.hpp>
+#include <glm\gtx\closest_point.hpp>
+#include <glm\gtc\quaternion.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
-typedef glm::tquat<float> quaternion;
 //Exemple
 extern void Exemple_GUI();
 extern void Exemple_PhysicsInit();
@@ -119,7 +119,7 @@ public:
 	glm::vec3 torque;
 	glm::mat3 inertiaTensor;
 
-	quaternion rotationQuatern;
+	glm::fquat rotationQuatern;
 	glm::vec3 rotationVect;
 	float tolerancy = 0.5f;
 	float elasticityCoeff = 0.5f;
