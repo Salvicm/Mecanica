@@ -114,10 +114,10 @@ public:
 	glm::vec3 position = { 0.0f,5.0f,0.0f };
 	glm::vec3 size = { 1.0f, 1.0f, 1.0f };
 	glm::fquat orientation;
-	glm::vec3 angularMomentum;
+	glm::vec3 angularVelocity;
 
 	//ASSIST
-	glm::vec3 linearAcceleration;
+	glm::vec3 linearSpeed;
 	glm::vec3 force = { 0,0,0 };
 	glm::vec3 forcePosition = { 0,0,0 };
 
@@ -126,7 +126,7 @@ public:
 
 	//CONSTANTS
 	float mass = 1;
-	float inverseMass;
+	float inverseMass = 0;
 	glm::vec3 angularInertia = { 0,0,0 };
 
 
@@ -139,9 +139,9 @@ public:
 		position = { 0.0f,5.0f,0.0f };
 		size = { 1.0f, 1.0f, 1.0f };
 		orientation = { 0,0,0,1 };
-		angularMomentum = { 0,0,0 };
+		angularVelocity = { 0,0,0 };
 
-		linearAcceleration = { 0,0,0 };
+		linearSpeed = { 0,0,0 };
 
 		angularAcceleration = { 0,0,0,1 };
 
@@ -194,13 +194,20 @@ public:
 
 
 	void SemiImplicitEuler(float _dt) {
-		linearAcceleration += (force + acceleration) * inverseMass;
-		position += _dt * linearAcceleration;
 
-		angularMomentum += glm::cross(force, (forcePosition - position));
+		//POSITION
+		glm::vec3 linearAcceleration = (force + acceleration) * inverseMass;
+		linearSpeed += linearAcceleration * _dt;
+		position += linearSpeed;
 
-		angularAcceleration = angularMomentum * angularInertia;
-		orientation += _dt * (angularAcceleration * orientation);
+
+		//ROTATION
+		angularVelocity += glm::cross(force, (forcePosition - position)) * -angularInertia;
+
+		orientation = glm::normalize(orientation);
+		glm::fquat q(0, angularVelocity.x, angularVelocity.y, angularVelocity.z);
+		glm::fquat spin = 0.5f * q * orientation;
+		orientation += _dt * spin;
 	}
 
 } rigidBod;
