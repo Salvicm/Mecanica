@@ -7,6 +7,7 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtx\closest_point.hpp>
 #include <glm\gtc\quaternion.hpp>
+#include <glm\gtx\quaternion.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -99,18 +100,24 @@ bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const g
 
 class Rigidbody {
 public:
-	glm::vec3 cubePosition = { 0.0f, 5.0f, 0.0f };
-	glm::vec3 position = { 0.0f,0.0f,0.0f }; // Center mass
+	glm::vec3 position = { 0.0f, 5.0f, 0.0f };
+	glm::vec3 centroDeMasa = { 0.0f,0.0f,0.0f }; // Center mass
 	glm::vec3 deltaPosition = { 0.0f,0.0f,0.0f }; // Center mass
 	glm::vec3 size = {1.0f, 1.0f, 1.0f};
 	glm::vec3 speed = { 0.0f, 0.0f, 0.0f };
 	glm::vec3 torque = { 0.0f, 0.0f, 0.0f };
+	glm::vec3 linearMomentum = { 0.0f, 5.0f, 0.0f };
+	glm::mat3 iBody = glm::mat3(1.f / 12.f * mass); // Falta una parte(h^2 + d^2)
+
+
 	glm::mat3 inertiaTensor = glm::mat3();
 
 	glm::vec3 angularMomentum;
-	glm::fquat angularSpeed;
+	glm::vec3 angularSpeed;
 	glm::fquat rotationQuatern;
 	glm::vec3 rotationVect = { 0.0f, 0.0f, 0.0f };
+
+
 	float tolerancy = 0.5f;
 	float elasticityCoeff = 0.5f;
 	float mass = 1.0f;
@@ -121,8 +128,8 @@ public:
 	}
 	void Update(float _dt) {
 		SemiImplicitEuler(_dt);
-		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(cubePosition.x, cubePosition.y, cubePosition.z)); // Esto es temporal
-		glm::mat4 r = glm::mat4();
+		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(position.x, position.y, position.z)); // Esto es temporal
+		glm::mat4 r = glm::toMat4(rotationQuatern);
 		glm::mat4 s = glm::scale(glm::mat4(), glm::vec3(size.x, size.y, size.z));
 		Cube::updateCube(t * r * s);
 	}
@@ -134,13 +141,16 @@ public:
 
 
 	void SemiImplicitEuler(float _dt) {
-		position = position + _dt * acceleration;
+		linearMomentum = linearMomentum + _dt * acceleration; // Linear momentum
+		// Torque: Posicion punto - posicion mundo prod vectorial fuerza de rotacion
 		angularMomentum = angularMomentum + _dt * torque;
-		speed = cubePosition / mass;
-		cubePosition  = cubePosition + _dt * speed;
-		// inertiaTensor = rotationQuatern * inertiaTensor * pow(rotationQuatern, torque); ??
-		angularSpeed = inertiaTensor * angularMomentum; // Cuando actualizo el momentum?
-		rotationQuatern = rotationQuatern + _dt * (angularSpeed * rotationQuatern);
+		speed = linearMomentum / mass;
+		position  = position + _dt * speed;
+		// ITensor = toMat3(q) * inverse(iBody) * Traspuesta de Q a mat3
+		inertiaTensor = glm::toMat3(rotationQuatern) * glm::inverse(iBody) * glm::transpose(glm::mat3(rotationQuatern));
+		angularSpeed = inertiaTensor * angularMomentum; 
+		glm::fquat tmpQuat = (0.5f * angularSpeed) * rotationQuatern;
+		rotationQuatern = rotationQuatern + _dt * tmpQuat;
 		/*
 		P(t+dt) = P(t) + dt * F(t); // Position
 		L(t+dt) = L(t) + dt * te(t); // Angular momentum
@@ -148,7 +158,9 @@ public:
 		x(t+dt) = x(t) + dt * v(t + dt); // Center of mass position
 		I(t)^-1 = R(t) * i(body)^-1 * R(t)^T; // Inertia tensor
 		w(t) = I(t)^-1 * L(T+dt); // Angular speed
-		R(t+dt) = R(t) + dt* (w(t) * R(t)); // Rotation
+		R(t+dt) = R(t) + dt* (w(t) * R(t)); // Rotation <-- No la usamos
+		q(t+dt)= q(t) + dt * dq(t);
+		dq(t) = 1/2[w] q(t);
 
 		*/
 	}
