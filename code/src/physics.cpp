@@ -41,7 +41,7 @@ bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const g
 
 std::vector<glm::vec4> planes;
 float resetTime = 15;
-glm::vec3 acceleration = { 0,-9.81,0 };
+glm::vec3 acceleration = { 0.0f,0.0f,0.0f };
 bool simulate = true;
 
 void InitPlanes() {
@@ -92,55 +92,67 @@ bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const g
 	return x * y < 0;
 }
 
-void SemiImplicitEuler() {
-	/*
-	P(t+dt) = P(t) + dt * F(t); // Position
-	L(t+dt) = L(t) + dt * te(t); // Angular momentum
-	v(t+dt) = P(t+dt) / M; // Velocity
-	x(t+dt) = x(t) + dt * v(t + dt); // Center of mass position
-	I(t)^-1 = R(t) * i(body)^-1 * R(t)^T; // Inertia tensor
-	w(t) = I(t)^-1 * L(T+dt); // Angular speed
-	R(t+dt) = R(t) + dt* (w(t) * R(t)); // Rotation
-	
-	*/
-}
+
 #pragma endregion
 
 
 
 class Rigidbody {
 public:
+	glm::vec3 cubePosition = { 0.0f, 5.0f, 0.0f };
 	glm::vec3 position = { 0.0f,0.0f,0.0f }; // Center mass
 	glm::vec3 deltaPosition = { 0.0f,0.0f,0.0f }; // Center mass
 	glm::vec3 size = {1.0f, 1.0f, 1.0f};
-	glm::vec3 acceleration;
-	glm::vec3 speed;
-	glm::vec3 angularSpeed;
-	glm::vec3 torque;
-	glm::mat3 inertiaTensor;
+	glm::vec3 speed = { 0.0f, 0.0f, 0.0f };
+	glm::vec3 torque = { 0.0f, 0.0f, 0.0f };
+	glm::mat3 inertiaTensor = glm::mat3();
 
+	glm::vec3 angularMomentum;
+	glm::fquat angularSpeed;
 	glm::fquat rotationQuatern;
-	glm::vec3 rotationVect;
+	glm::vec3 rotationVect = { 0.0f, 0.0f, 0.0f };
 	float tolerancy = 0.5f;
 	float elasticityCoeff = 0.5f;
-	
+	float mass = 1.0f;
 	void Init() {
 		Cube::setupCube();
 		extern bool renderCube;
 		renderCube = true;
 	}
-	void Update() {
-		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(position.x, position.y, position.z)); // Esto es temporal
-		glm::mat4 r = glm::mat4(1.f);
+	void Update(float _dt) {
+		SemiImplicitEuler(_dt);
+		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(cubePosition.x, cubePosition.y, cubePosition.z)); // Esto es temporal
+		glm::mat4 r = glm::mat4();
 		glm::mat4 s = glm::scale(glm::mat4(), glm::vec3(size.x, size.y, size.z));
 		Cube::updateCube(t * r * s);
-		Cube::drawCube();
 	}
 	void Cleanup() {
 		Cube::cleanupCube();
 		extern bool renderCube;
 		renderCube = false;
 	}
+
+
+	void SemiImplicitEuler(float _dt) {
+		position = position + _dt * acceleration;
+		angularMomentum = angularMomentum + _dt * torque;
+		speed = cubePosition / mass;
+		cubePosition  = cubePosition + _dt * speed;
+		// inertiaTensor = rotationQuatern * inertiaTensor * pow(rotationQuatern, torque); ??
+		angularSpeed = inertiaTensor * angularMomentum; // Cuando actualizo el momentum?
+		rotationQuatern = rotationQuatern + _dt * (angularSpeed * rotationQuatern);
+		/*
+		P(t+dt) = P(t) + dt * F(t); // Position
+		L(t+dt) = L(t) + dt * te(t); // Angular momentum
+		v(t+dt) = P(t+dt) / M; // Velocity
+		x(t+dt) = x(t) + dt * v(t + dt); // Center of mass position
+		I(t)^-1 = R(t) * i(body)^-1 * R(t)^T; // Inertia tensor
+		w(t) = I(t)^-1 * L(T+dt); // Angular speed
+		R(t+dt) = R(t) + dt* (w(t) * R(t)); // Rotation
+
+		*/
+	}
+
 } rigidBod;
 
 bool show_test_window = false;
@@ -171,7 +183,7 @@ void PhysicsInit() {
 }
 
 void PhysicsUpdate(float dt) {
-	rigidBod.Update();
+	rigidBod.Update(dt);
 }
 
 void PhysicsCleanup() {
