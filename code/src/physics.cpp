@@ -103,6 +103,18 @@ bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const g
 	return x * y < 0;
 }
 
+struct Line {
+	glm::vec3 point;
+	glm::vec3 direction;
+};
+
+glm::vec3 LinePlaneCollision(const Line & line, const glm::vec4 & plane) {
+	glm::vec3 normal = plane;
+	float dotPoint = glm::dot(normal, line.point);
+	float dotDirection = glm::dot(normal, line.direction);
+	return line.point + (((plane.w - dotPoint) / dotDirection) * line.direction);
+}
+
 
 #pragma endregion
 
@@ -162,7 +174,7 @@ public:
 		extern bool renderParticles;
 		renderParticles = true;
 
-		LilSpheres::particleCount = 28;
+		LilSpheres::particleCount = 68;
 		glm::vec3 pointsPos[20];
 		glm::vec3 tempPos = forcePosition;
 		for (size_t i = 0; i < 20; i++)
@@ -175,16 +187,10 @@ public:
 	}
 	void Update(float _dt) {
 		SemiImplicitEuler(_dt);
-		glm::vec3 pointsPos[8];
-		pointsPos[0] = getRelativePoint({ .5f, .5f, .5f });
-		pointsPos[1] = getRelativePoint({ -.5f, .5f, .5f });
-		pointsPos[2] = getRelativePoint({ -.5f, -.5f, .5f });
-		pointsPos[3] = getRelativePoint({ -.5f, -.5f, -.5f });
-		pointsPos[4] = getRelativePoint({ .5f, -.5f, .5f });
-		pointsPos[5] = getRelativePoint({ .5f, -.5f, -.5f });
-		pointsPos[6] = getRelativePoint({ .5f, .5f, -.5f });
-		pointsPos[7] = getRelativePoint({ -.5f, .5f, -.5f });
-		LilSpheres::updateParticles(20, 8, &pointsPos[0].x);
+		for (size_t i = 0; i < planes.size(); i++)
+		{
+			intersectionWithPlane(i);
+		}
 		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(position.x, position.y, position.z)); // Esto es temporal
 		glm::mat4 r = glm::toMat4(orientation);
 		glm::mat4 s = glm::scale(glm::mat4(), glm::vec3(size.x, size.y, size.z));
@@ -203,6 +209,21 @@ public:
 		Init();
 	}
 
+	bool intersectionWithPlane(int i) {
+		glm::vec3 pointsPos[8];
+		glm::vec3 normal = planes[i];
+		pointsPos[0] = LinePlaneCollision({ getRelativePoint({ .5f, .5f, .5f }), normal }, planes[i]);
+		pointsPos[1] = LinePlaneCollision({ getRelativePoint({ -.5f, .5f, .5f }), normal }, planes[i]);
+		pointsPos[2] = LinePlaneCollision({ getRelativePoint({ -.5f, -.5f, .5f }), normal }, planes[i]);
+		pointsPos[3] = LinePlaneCollision({ getRelativePoint({ -.5f, -.5f, -.5f }), normal }, planes[i]);
+		pointsPos[4] = LinePlaneCollision({ getRelativePoint({ .5f, -.5f, .5f }), normal }, planes[i]);
+		pointsPos[5] = LinePlaneCollision({ getRelativePoint({ .5f, -.5f, -.5f }), normal }, planes[i]);
+		pointsPos[6] = LinePlaneCollision({ getRelativePoint({ .5f, .5f, -.5f }), normal }, planes[i]);
+		pointsPos[7] = LinePlaneCollision({ getRelativePoint({ -.5f, .5f, -.5f }), normal }, planes[i]);
+		LilSpheres::updateParticles(20 + i * 8, 8, &pointsPos[0].x);
+
+		return false;
+	}
 
 	glm::vec3 getRelativePoint(glm::vec3 point) {
 		point *= size;
