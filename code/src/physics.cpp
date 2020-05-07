@@ -58,10 +58,10 @@ int frameCount = 0;
 void InitPlanes() {
 	planes.push_back(getRectFormula(
 		// Basandonos en los indices del cubo 
-		{ Box::cubeVerts[4 * 3], Box::cubeVerts[4 * 3 + 1], Box::cubeVerts[4 * 3 + 2] },
-		{ Box::cubeVerts[5 * 3], Box::cubeVerts[5 * 3 + 1], Box::cubeVerts[5 * 3 + 2] },
-		{ Box::cubeVerts[6 * 3], Box::cubeVerts[6 * 3 + 1], Box::cubeVerts[6 * 3 + 2] },
-		{ Box::cubeVerts[7 * 3], Box::cubeVerts[7 * 3 + 1], Box::cubeVerts[7 * 3 + 2] }));
+		{ -Box::cubeVerts[4 * 3], -Box::cubeVerts[4 * 3 + 1], -Box::cubeVerts[4 * 3 + 2] },
+		{ -Box::cubeVerts[5 * 3], -Box::cubeVerts[5 * 3 + 1], -Box::cubeVerts[5 * 3 + 2] },
+		{ -Box::cubeVerts[6 * 3], -Box::cubeVerts[6 * 3 + 1], -Box::cubeVerts[6 * 3 + 2] },
+		{ -Box::cubeVerts[7 * 3], -Box::cubeVerts[7 * 3 + 1], -Box::cubeVerts[7 * 3 + 2] }));
 	for (int j = 0; j < 20; j += 4) {
 		planes.push_back(getRectFormula(
 			// Basandonos en los indices del cubo 
@@ -126,11 +126,13 @@ glm::vec3 LinePlaneCollision(const Line & line, const glm::vec4 & plane) {
 #pragma endregion
 
 
+const int obj_points = 8;
 
 class Rigidbody {
 public:
 	//BASIC
 	glm::vec3 position = { 0.0f,5.0f,0.0f };
+	glm::vec3 cubePoints[obj_points];
 	glm::vec3 lastPosition;
 	glm::vec3 size = { 1.0f, 1.0f, 1.0f };
 	glm::fquat orientation;
@@ -170,6 +172,16 @@ public:
 		angularInertia.y = mass * (glm::exp2(size.x) + glm::exp2(size.z)) / 12;
 		angularInertia.z = mass * (glm::exp2(size.x) + glm::exp2(size.y)) / 12;
 		inverseMass = 1 / mass;
+
+		cubePoints[0] = { .5f, .5f, .5f };
+		cubePoints[1] = { -.5f, .5f, .5f };
+		cubePoints[2] = { -.5f, -.5f, .5f };
+		cubePoints[3] = { -.5f, -.5f, -.5f };
+		cubePoints[4] = { .5f, -.5f, .5f };
+		cubePoints[5] = { .5f, -.5f, -.5f };
+		cubePoints[6] = { .5f, .5f, -.5f };
+		cubePoints[7] = { -.5f, .5f, -.5f };
+
 		force.x = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 10;
 		force.y = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 10;
 		force.z = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 10;
@@ -182,7 +194,7 @@ public:
 		extern bool renderParticles;
 		renderParticles = true;
 
-		LilSpheres::particleCount = 20 + 6 * 8;
+		LilSpheres::particleCount = 20 + 6 * obj_points;
 		glm::vec3 pointsPos[20];
 		glm::vec3 tempPos = forcePosition;
 		for (size_t i = 0; i < 20; i++)
@@ -216,6 +228,7 @@ public:
 	}
 
 	void Reset() {
+		simulate = true;
 		countdown = 0;
 		frameCount = 0;
 		Cleanup();
@@ -223,31 +236,23 @@ public:
 	}
 
 	bool intersectionWithPlane(int i) {
-		glm::vec3 pointsPos[8];
+		glm::vec3 pointsPos[obj_points];
 		glm::vec3 normal = planes[i];
-		pointsPos[0] = LinePlaneCollision({ getRelativePoint({ .5f, .5f, .5f }), normal }, planes[i]);
-		pointsPos[1] = LinePlaneCollision({ getRelativePoint({ -.5f, .5f, .5f }), normal }, planes[i]);
-		pointsPos[2] = LinePlaneCollision({ getRelativePoint({ -.5f, -.5f, .5f }), normal }, planes[i]);
-		pointsPos[3] = LinePlaneCollision({ getRelativePoint({ -.5f, -.5f, -.5f }), normal }, planes[i]);
-		pointsPos[4] = LinePlaneCollision({ getRelativePoint({ .5f, -.5f, .5f }), normal }, planes[i]);
-		pointsPos[5] = LinePlaneCollision({ getRelativePoint({ .5f, -.5f, -.5f }), normal }, planes[i]);
-		pointsPos[6] = LinePlaneCollision({ getRelativePoint({ .5f, .5f, -.5f }), normal }, planes[i]);
-		pointsPos[7] = LinePlaneCollision({ getRelativePoint({ -.5f, .5f, -.5f }), normal }, planes[i]);
-		LilSpheres::updateParticles(20 + i * 8, 8, &pointsPos[0].x);
+		for (size_t j = 0; j < obj_points; j++)
+		{
+			pointsPos[j] = LinePlaneCollision({ getRelativePoint(cubePoints[j]), normal }, planes[i]);
+		}
+		LilSpheres::updateParticles(20 + i * obj_points, obj_points, &pointsPos[0].x);
 
-		float scales[8];
-		scales[0] = LinePlaneCollisionRange({ getRelativePoint({ .5f, .5f, .5f }), normal }, planes[i]);
-		scales[1] = LinePlaneCollisionRange({ getRelativePoint({ -.5f, .5f, .5f }), normal }, planes[i]);
-		scales[2] = LinePlaneCollisionRange({ getRelativePoint({ -.5f, -.5f, .5f }), normal }, planes[i]);
-		scales[3] = LinePlaneCollisionRange({ getRelativePoint({ -.5f, -.5f, -.5f }), normal }, planes[i]);
-		scales[4] = LinePlaneCollisionRange({ getRelativePoint({ .5f, -.5f, .5f }), normal }, planes[i]);
-		scales[5] = LinePlaneCollisionRange({ getRelativePoint({ .5f, -.5f, -.5f }), normal }, planes[i]);
-		scales[6] = LinePlaneCollisionRange({ getRelativePoint({ .5f, .5f, -.5f }), normal }, planes[i]);
-		scales[7] = LinePlaneCollisionRange({ getRelativePoint({ -.5f, .5f, -.5f }), normal }, planes[i]);
+		float scales[obj_points];
+		for (size_t j = 0; j < obj_points; j++)
+		{
+			scales[j] = LinePlaneCollisionRange({ getRelativePoint(cubePoints[j]), normal }, planes[i]);
+		}
 
 		bool positive = scales[0] >= 0;
 		bool collided = false;
-		for (size_t i = 1; i < 8; i++)
+		for (size_t i = 1; i < obj_points; i++)
 		{
 			if (positive && scales[i] < 0) {
 				collided = true;
@@ -283,7 +288,7 @@ public:
 		x(t+dt) = x(t) + dt * v(t + dt); // Position
 		*/
 		linearMomentum += _dt * (acceleration + force); // Linear momentum
-		glm::vec3 linearSpeed = linearMomentum / mass;
+		glm::vec3 linearSpeed = linearMomentum * inverseMass;
 		position += _dt * linearSpeed;
 
 
@@ -340,17 +345,17 @@ void PhysicsInit() {
 }
 
 void PhysicsUpdate(float dt) {
-	if (countdown >= resetTime) {
-		rigidBod.Reset();
-	}
 	if (simulate) {
+		if (countdown >= resetTime) {
+			rigidBod.Reset();
+		}
 		if (frameCount > 0) {
 			rigidBod.force = { 0,0,0 };
 		}
 		rigidBod.Update(dt * speed);
+		countdown += dt * speed;
+		frameCount++;
 	}
-	countdown += dt;
-	frameCount++;
 }
 
 void PhysicsCleanup() {
