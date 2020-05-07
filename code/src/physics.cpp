@@ -47,11 +47,13 @@ glm::vec3 getPerpVector(glm::vec3 _a, glm::vec3 _b);
 glm::vec4 getRectFormula(glm::vec3 _a, glm::vec3 _b, glm::vec3 _c, glm::vec3 _d);
 bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const glm::vec4 plano);
 
+int randomSeed = 10;
+
 std::vector<glm::vec4> planes;
 float resetTime = 15;
 float countdown = 0;
 float speed = 1;
-glm::vec3 acceleration = { 0.0f, -9.81f,0.0f };
+glm::vec3 acceleration = { 0.0f, -.981f,0.0f };
 bool simulate = true;
 int frameCount = 0;
 
@@ -143,8 +145,10 @@ public:
 	glm::vec3 lastLinearMomentum;
 	// DEBUG
 	glm::vec3 accelForce;
+	bool showIntersections = false;
 	//ASSIST
 	glm::vec3 force = { 0,0,0 };
+	float forceScale = 10;
 	glm::vec3 forcePosition = { 0,0,0 };
 
 	float tolerance = 0.01f;
@@ -160,6 +164,7 @@ public:
 	};
 
 	void Init() {
+		srand(randomSeed);
 		Cube::setupCube();
 		extern bool renderCube;
 		renderCube = true;
@@ -188,14 +193,14 @@ public:
 		cubePoints[6] = { .5f, .5f, -.5f };
 		cubePoints[7] = { -.5f, .5f, -.5f };
 
-		force.x = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 10;
-		force.y = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 10;
-		force.z = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 10;
+		force.x = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1)* forceScale;
+		force.y = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1)* forceScale;
+		force.z = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1)* forceScale;
 
-		forcePosition = position;
-		forcePosition.x += (static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1;
-		forcePosition.y += (static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1;
-		forcePosition.z += (static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1;
+		forcePosition.x = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) - 0.5;
+		forcePosition.y = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) - 0.5;
+		forcePosition.z = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) - 0.5;
+		forcePosition = getRelativePoint(forcePosition);
 
 		extern bool renderParticles;
 		renderParticles = true;
@@ -211,14 +216,14 @@ public:
 		LilSpheres::updateParticles(0, 20, &pointsPos[0].x);
 	}
 	void Update(const float _dt) {
-
-
+		
 		lastPosition = position;
 		lastOrientation = orientation;
 		lastAngularMomentum = angularMomentum;
 		lastLinearMomentum = linearMomentum;
 
 		SemiImplicitEuler(_dt);
+
 		for (size_t i = 0; i < planes.size(); i++)
 		{
 			CollisionInfo coll = intersectionWithPlane(i);
@@ -237,13 +242,15 @@ public:
 						scalar -= scale * 0.5;
 					}
 				}
-				// Colision y posicion corregida
-				//linearMomentum = { 0,0,0 };
-				//angularMomentum = { 0,0,0 };
-				forcePosition = getRelativePoint(cubePoints[coll.point]);
-				force = glm::reflect(lastLinearMomentum, normal);
-				frameCount = -1;
 
+				// Colision y posicion corregida
+
+				forcePosition = getRelativePoint(cubePoints[coll.point]);
+				//force = glm::reflect(lastLinearMomentum, normal) * elasticity;
+				force = glm::reflect(lastLinearMomentum, normal) * elasticity;
+				//if (glm::dot(force, normal) > 0) {
+				//	force *= -1;
+				//}
 				glm::vec3 pointsPos[20];
 				glm::vec3 tempPos = forcePosition;
 				for (size_t i = 0; i < 20; i++)
@@ -252,7 +259,14 @@ public:
 					tempPos += force * float(0.005f * i);
 				}
 				LilSpheres::updateParticles(0, 20, &pointsPos[0].x);
-				break;
+
+				linearMomentum = { 0,0,0 };
+				angularMomentum = { 0,0,0 };
+				lastPosition = position;
+				lastOrientation = orientation;
+				lastAngularMomentum = angularMomentum;
+				lastLinearMomentum = linearMomentum;
+				SemiImplicitEuler(_dt);
 			}
 		}
 		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(position.x, position.y, position.z)); // Esto es temporal
@@ -274,14 +288,22 @@ public:
 		Init();
 	}
 	CollisionInfo intersectionWithPlane(int i) {
-		glm::vec3 pointsPos[obj_points];
 		glm::vec3 normal = planes[i];
 		normal *= -1;
-		for (size_t j = 0; j < obj_points; j++)
-		{
-			pointsPos[j] = LinePlaneCollision({ getRelativePoint(cubePoints[j]), normal }, planes[i]);
-		}
-		LilSpheres::updateParticles(20 + i * obj_points, obj_points, &pointsPos[0].x);
+			glm::vec3 pointsPos[obj_points];
+			if (showIntersections) {
+				for (size_t j = 0; j < obj_points; j++)
+				{
+					pointsPos[j] = LinePlaneCollision({ getRelativePoint(cubePoints[j]), normal }, planes[i]);
+				}
+			}
+			else {
+				for (size_t j = 0; j < obj_points; j++)
+				{
+					pointsPos[j] = position;
+				}
+			}
+			LilSpheres::updateParticles(20 + i * obj_points, obj_points, &pointsPos[0].x);
 
 		float scales[obj_points];
 		for (size_t j = 0; j < obj_points; j++)
@@ -322,7 +344,7 @@ public:
 		v(t+dt) = P(t+dt) / M; // Velocity
 		x(t+dt) = x(t) + dt * v(t + dt); // Position
 		*/
-		linearMomentum += _dt * (acceleration + force); // Linear momentum
+		linearMomentum += (acceleration + force); // Linear momentum
 		accelForce = acceleration + force;
 		glm::vec3 linearSpeed = linearMomentum * inverseMass;
 		position += _dt * linearSpeed;
@@ -349,6 +371,7 @@ void GUI() {
 		ImGui::Spacing();
 		ImGui::Spacing();
 		ImGui::Text("Simulation Settings:");
+		ImGui::DragInt("Seed", &randomSeed);
 		ImGui::Text("Next reset %.3f : %.3f", countdown, resetTime);
 		ImGui::DragFloat3("Acceleration", &acceleration[0], .01f);
 		ImGui::SliderFloat("Reset time", &resetTime, .5f, 20.f);
@@ -362,11 +385,13 @@ void GUI() {
 		ImGui::DragFloat3("Cube Size", &rigidBod.size[0], .01f);
 		ImGui::SliderFloat("Elasticity", &rigidBod.elasticity, .01f, 1.f);
 		ImGui::SliderFloat("Tolerance", &rigidBod.tolerance, .001f, .1f);
-		ImGui::SliderFloat("Mass", &rigidBod.mass, .01f, 1.f);
+		ImGui::SliderFloat("Mass", &rigidBod.mass, .01f, 5.f);
+		ImGui::SliderFloat("ForceScale", &rigidBod.forceScale, .01f, 20.f);
 
 
 		ImGui::Spacing();
 		ImGui::Text("Debug: ");
+		ImGui::Checkbox("Show Intersections", &rigidBod.showIntersections);
 		ImGui::DragFloat3("Fix Force", &rigidBod.force[0], .01f);
 		ImGui::DragFloat3("Total Force", &rigidBod.accelForce[0], .01f);
 
@@ -379,7 +404,7 @@ void GUI() {
 }
 
 void PhysicsInit() {
-	srand(time(NULL));
+	randomSeed = time(NULL);
 	InitPlanes();
 	rigidBod.Init();
 }
@@ -387,12 +412,11 @@ void PhysicsInit() {
 void PhysicsUpdate(float dt) {
 	if (simulate) {
 		if (countdown >= resetTime) {
+			randomSeed = time(NULL);
 			rigidBod.Reset();
 		}
 		if (frameCount > 0) {
 			rigidBod.force = { 0,0,0 };
-		}else{
-			int test = 1;
 		}
 		rigidBod.Update(dt * speed);
 		countdown += dt * speed;
