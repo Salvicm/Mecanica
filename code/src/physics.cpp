@@ -222,19 +222,19 @@ public:
 			CollisionInfo coll = intersectionWithPlane(i);
 			if (coll.collided) {
 				float scalar = 0.5f;
-				float scale = 0.5f;
 				glm::vec3 normal = planes[i];
-				//while (abs(coll.distance) > tolerance) {
-				//	SemiImplicitEuler(_dt * scalar);
-				//	coll.distance = LinePlaneCollisionRange({ getRelativePoint(cubePoints[coll.point]), normal }, planes[i]);
-				//	if (coll.distance > 0) {
-				//		scalar -= scalar * scale;
-				//	}
-				//	else {
-				//		scalar += scalar * scale;
-				//	}
-				//	scale *= scale;
-				//}
+				while (abs(coll.distance) > tolerance) {
+					SemiImplicitEuler(_dt * scalar);
+					coll.distance = LinePlaneCollisionRange({ getRelativePoint(cubePoints[coll.point]), normal }, planes[i]);
+					float scale = 1 - scalar;
+					if (coll.distance > 0) {
+						scalar -= scale * 0.5;
+					}
+					else {
+						scalar += scale * 0.5;
+					}
+					//scale *= scale;
+				}
 			}
 		}
 		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(position.x, position.y, position.z)); // Esto es temporal
