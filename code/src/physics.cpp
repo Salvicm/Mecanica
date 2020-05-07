@@ -51,7 +51,7 @@ std::vector<glm::vec4> planes;
 float resetTime = 15;
 float countdown = 0;
 float speed = 1;
-glm::vec3 acceleration = { 0.0f,-.981f,0.0f };
+glm::vec3 acceleration = { 0.0f, -9.81f,0.0f };
 bool simulate = true;
 int frameCount = 0;
 
@@ -115,6 +115,7 @@ public:
 	glm::vec3 size = { 1.0f, 1.0f, 1.0f };
 	glm::fquat orientation;
 	glm::vec3 angularVelocity;
+	glm::vec3 linearMomentum = { 0.0f,0.0f,0.0f };
 
 	//ASSIST
 	glm::vec3 linearSpeed;
@@ -123,12 +124,12 @@ public:
 
 	glm::fquat angularAcceleration;
 
-
+	float tolerance = 0.75f;
+	float elasticity = 0.75f;
 	//CONSTANTS
 	float mass = 1;
 	float inverseMass = 0;
 	glm::vec3 angularInertia = { 0,0,0 };
-
 
 	void Init() {
 		Cube::setupCube();
@@ -140,7 +141,7 @@ public:
 		size = { 1.0f, 1.0f, 1.0f };
 		orientation = { 0,0,0,1 };
 		angularVelocity = { 0,0,0 };
-
+		linearMomentum = { 0, 0, 0 };
 		linearSpeed = { 0,0,0 };
 
 		angularAcceleration = { 0,0,0,1 };
@@ -153,6 +154,7 @@ public:
 		force.x = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 10;
 		force.y = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 10;
 		force.z = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 10;
+
 		forcePosition = position;
 		forcePosition.x += (static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1;
 		forcePosition.y += (static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1;
@@ -196,18 +198,25 @@ public:
 	void SemiImplicitEuler(float _dt) {
 
 		//POSITION
-		glm::vec3 linearAcceleration = (force + acceleration) * inverseMass;
-		linearSpeed += linearAcceleration * _dt;
-		position += linearSpeed;
+		/*
+		P(t+dt) = P(t) + dt * F(t); // Linear speed
+		L(t+dt) = L(t) + dt * te(t); // Angular momentum
+		v(t+dt) = P(t+dt) / M; // Velocity
+		x(t+dt) = x(t) + dt * v(t + dt); // Position
+		*/
+		linearMomentum = linearMomentum + _dt * (acceleration + force); // Linear momentum
+		linearSpeed = linearMomentum / mass;
+		position += _dt * linearSpeed;
 
 
 		//ROTATION
-		angularVelocity += glm::cross(force, (forcePosition - position)) * -angularInertia;
 
+		angularVelocity += glm::cross(force, (forcePosition - position)) * -angularInertia; // Momento angular
 		orientation = glm::normalize(orientation);
 		glm::fquat q(0, angularVelocity.x, angularVelocity.y, angularVelocity.z);
 		glm::fquat spin = 0.5f * q * orientation;
 		orientation += _dt * spin;
+		
 	}
 
 } rigidBod;
@@ -233,6 +242,9 @@ void GUI() {
 		ImGui::Text("Object Settings:");
 		ImGui::DragFloat3("Cube Position", &rigidBod.position[0], .01f);
 		ImGui::DragFloat3("Cube Size", &rigidBod.size[0], .01f);
+		ImGui::SliderFloat("Elasticity", &rigidBod.elasticity, .01f, 1.f);
+		ImGui::SliderFloat("Tolerance", &rigidBod.tolerance, .01f, 1.f);
+		ImGui::SliderFloat("Mass", &rigidBod.mass, .01f, 1.f);
 
 
 		if (ImGui::Button("Reset")) {
