@@ -141,7 +141,9 @@ public:
 	glm::vec3 lastAngularMomentum;
 	glm::vec3 linearMomentum = { 0.0f,0.0f,0.0f };
 	glm::vec3 lastLinearMomentum;
-
+	// DEBUG
+	glm::vec3 accelForce;
+	bool alreadyFound = false;
 	//ASSIST
 	glm::vec3 force = { 0,0,0 };
 	glm::vec3 forcePosition = { 0,0,0 };
@@ -152,7 +154,6 @@ public:
 	float mass = 1;
 	float inverseMass = 0;
 	glm::vec3 angularInertia = { 0,0,0 };
-
 	struct CollisionInfo {
 		bool collided = false;
 		int point = -1;
@@ -211,31 +212,55 @@ public:
 		LilSpheres::updateParticles(0, 20, &pointsPos[0].x);
 	}
 	void Update(const float _dt) {
+
 		lastPosition = position;
 		lastOrientation = orientation;
 		lastAngularMomentum = angularMomentum;
 		lastLinearMomentum = linearMomentum;
 
 		SemiImplicitEuler(_dt);
-		for (size_t i = 0; i < planes.size(); i++)
-		{
-			CollisionInfo coll = intersectionWithPlane(i);
-			if (coll.collided) {
-				float scalar = 0.5f;
-				glm::vec3 normal = planes[i];
-				while (abs(coll.distance) > tolerance) {
-					SemiImplicitEuler(_dt * scalar);
-					coll.distance = LinePlaneCollisionRange({ getRelativePoint(cubePoints[coll.point]), normal }, planes[i]);
-					float scale = 1 - scalar;
-					if (coll.distance > 0) {
-						scalar -= scale * 0.5;
+		if (!alreadyFound) {
+			for (size_t i = 0; i < planes.size(); i++)
+			{
+				CollisionInfo coll = intersectionWithPlane(i);
+				if (coll.collided) {
+					float scalar = 0.5f;
+					glm::vec3 normal = planes[i];
+					normal *= -1;
+					while (abs(coll.distance) > tolerance) {
+						SemiImplicitEuler(_dt * scalar);
+						coll.distance = LinePlaneCollisionRange({ getRelativePoint(cubePoints[coll.point]), normal }, planes[i]);
+						float scale = 1 - scalar;
+						if (coll.distance > 0) {
+							scalar += scale * 0.5;
+						}
+						else {
+							scalar -= scale * 0.5;
+						}
 					}
-					else {
-						scalar += scale * 0.5;
+					// Colision y posicion corregida
+					glm::vec3 impulse = lastLinearMomentum * mass; // Av = J/M
+					// Torque del impulso = (p-x(t)) cross J
+					forcePosition = getRelativePoint(cubePoints[coll.point]);
+					force = -impulse;
+					frameCount = -1;
+					LilSpheres::particleCount = 20 + 6 * obj_points;
+					glm::vec3 pointsPos[20];
+					glm::vec3 tempPos = forcePosition;
+					for (size_t i = 0; i < 20; i++)
+					{
+						pointsPos[i] = tempPos;
+						tempPos += force * float(0.005f * i);
 					}
-					//scale *= scale;
+					LilSpheres::updateParticles(0, 20, &pointsPos[0].x);
+					alreadyFound = true;
+
+					//BreakPoint();
+					break;
+
 				}
 			}
+
 		}
 		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(position.x, position.y, position.z)); // Esto es temporal
 		glm::mat4 r = glm::toMat4(orientation);
@@ -255,7 +280,9 @@ public:
 		Cleanup();
 		Init();
 	}
-
+	void BreakPoint() {
+		simulate = false;
+	}
 	CollisionInfo intersectionWithPlane(int i) {
 		glm::vec3 pointsPos[obj_points];
 		glm::vec3 normal = planes[i];
@@ -306,6 +333,7 @@ public:
 		x(t+dt) = x(t) + dt * v(t + dt); // Position
 		*/
 		linearMomentum += _dt * (acceleration + force); // Linear momentum
+		accelForce = acceleration + force;
 		glm::vec3 linearSpeed = linearMomentum * inverseMass;
 		position += _dt * linearSpeed;
 
@@ -326,7 +354,6 @@ bool show_test_window = false;
 void GUI() {
 	bool show = true;
 	ImGui::Begin("Practica rigidbodies", &show, 0);
-
 	{
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 		ImGui::Spacing();
@@ -347,6 +374,11 @@ void GUI() {
 		ImGui::SliderFloat("Tolerance", &rigidBod.tolerance, .001f, .1f);
 		ImGui::SliderFloat("Mass", &rigidBod.mass, .01f, 1.f);
 
+
+		ImGui::Spacing();
+		ImGui::Text("Debug: ");
+		ImGui::DragFloat3("Fix Force", &rigidBod.force[0], .01f);
+		ImGui::DragFloat3("Total Force", &rigidBod.accelForce[0], .01f);
 
 		if (ImGui::Button("Reset")) {
 			rigidBod.Reset();
