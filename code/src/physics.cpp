@@ -146,12 +146,18 @@ public:
 	glm::vec3 force = { 0,0,0 };
 	glm::vec3 forcePosition = { 0,0,0 };
 
-	float tolerance = 0.75f;
+	float tolerance = 0.01f;
 	float elasticity = 0.75f;
 	//CONSTANTS
 	float mass = 1;
 	float inverseMass = 0;
 	glm::vec3 angularInertia = { 0,0,0 };
+
+	struct CollisionInfo {
+		bool collided = false;
+		int point = -1;
+		float distance = -1;
+	};
 
 	void Init() {
 		Cube::setupCube();
@@ -204,7 +210,7 @@ public:
 		}
 		LilSpheres::updateParticles(0, 20, &pointsPos[0].x);
 	}
-	void Update(float _dt) {
+	void Update(const float _dt) {
 		lastPosition = position;
 		lastOrientation = orientation;
 		lastAngularMomentum = angularMomentum;
@@ -213,8 +219,23 @@ public:
 		SemiImplicitEuler(_dt);
 		for (size_t i = 0; i < planes.size(); i++)
 		{
-			if (simulate)
-				simulate = !intersectionWithPlane(i);
+			CollisionInfo coll = intersectionWithPlane(i);
+			if (coll.collided) {
+				float scalar = 0.5f;
+				float scale = 0.5f;
+				glm::vec3 normal = planes[i];
+				//while (abs(coll.distance) > tolerance) {
+				//	SemiImplicitEuler(_dt * scalar);
+				//	coll.distance = LinePlaneCollisionRange({ getRelativePoint(cubePoints[coll.point]), normal }, planes[i]);
+				//	if (coll.distance > 0) {
+				//		scalar -= scalar * scale;
+				//	}
+				//	else {
+				//		scalar += scalar * scale;
+				//	}
+				//	scale *= scale;
+				//}
+			}
 		}
 		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(position.x, position.y, position.z)); // Esto es temporal
 		glm::mat4 r = glm::toMat4(orientation);
@@ -235,9 +256,10 @@ public:
 		Init();
 	}
 
-	bool intersectionWithPlane(int i) {
+	CollisionInfo intersectionWithPlane(int i) {
 		glm::vec3 pointsPos[obj_points];
 		glm::vec3 normal = planes[i];
+		normal *= -1;
 		for (size_t j = 0; j < obj_points; j++)
 		{
 			pointsPos[j] = LinePlaneCollision({ getRelativePoint(cubePoints[j]), normal }, planes[i]);
@@ -250,21 +272,17 @@ public:
 			scales[j] = LinePlaneCollisionRange({ getRelativePoint(cubePoints[j]), normal }, planes[i]);
 		}
 
-		bool positive = scales[0] >= 0;
-		bool collided = false;
-		for (size_t i = 1; i < obj_points; i++)
+		CollisionInfo collision;
+		for (size_t i = 0; i < obj_points; i++)
 		{
-			if (positive && scales[i] < 0) {
-				collided = true;
-				break;
-			}
-			if (!positive && scales[i] >= 0) {
-				collided = true;
-				break;
+			if (scales[i] < collision.distance) {
+				collision.collided = true;
+				collision.point = i;
+				collision.distance = scales[i];
 			}
 		}
 
-		return collided;
+		return collision;
 	}
 
 	glm::vec3 getRelativePoint(glm::vec3 point) {
@@ -274,7 +292,7 @@ public:
 		return point;
 	}
 
-	void SemiImplicitEuler(float _dt) {
+	void SemiImplicitEuler(const float _dt) {
 		position = lastPosition;
 		orientation = lastOrientation;
 		angularMomentum = lastAngularMomentum;
@@ -326,7 +344,7 @@ void GUI() {
 		ImGui::DragFloat3("Cube Position", &rigidBod.position[0], .01f);
 		ImGui::DragFloat3("Cube Size", &rigidBod.size[0], .01f);
 		ImGui::SliderFloat("Elasticity", &rigidBod.elasticity, .01f, 1.f);
-		ImGui::SliderFloat("Tolerance", &rigidBod.tolerance, .01f, 1.f);
+		ImGui::SliderFloat("Tolerance", &rigidBod.tolerance, .001f, .1f);
 		ImGui::SliderFloat("Mass", &rigidBod.mass, .01f, 1.f);
 
 
