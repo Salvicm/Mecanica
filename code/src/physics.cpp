@@ -149,8 +149,13 @@ public:
 		renderCube = true;
 
 
-		position = { 0.0f,5.0f,0.0f };
+		position.x = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 4;
+		position.y = ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX))) * 8 + 1;
+		position.z = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 4;
 		orientation = { 0,0,0,1 };
+		orientation.x = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1);
+		orientation.y = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1);
+		orientation.z = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1);
 		angularVelocity = { 0,0,0 };
 		linearMomentum = { 0, 0, 0 };
 		linearSpeed = { 0,0,0 };
