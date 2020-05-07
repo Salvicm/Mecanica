@@ -108,11 +108,18 @@ struct Line {
 	glm::vec3 direction;
 };
 
-glm::vec3 LinePlaneCollision(const Line & line, const glm::vec4 & plane) {
+float LinePlaneCollisionRange(const Line& line, const glm::vec4& plane) {
 	glm::vec3 normal = plane;
 	float dotPoint = glm::dot(normal, line.point);
 	float dotDirection = glm::dot(normal, line.direction);
-	return line.point + (((plane.w - dotPoint) / dotDirection) * line.direction);
+	return ((plane.w - dotPoint) / dotDirection);
+}
+
+glm::vec3 LinePoint(const Line & line, float range) {
+	return line.point + range * line.direction;
+}
+glm::vec3 LinePlaneCollision(const Line & line, const glm::vec4 & plane) {
+	return LinePoint(line, LinePlaneCollisionRange(line, plane));
 }
 
 
@@ -124,17 +131,18 @@ class Rigidbody {
 public:
 	//BASIC
 	glm::vec3 position = { 0.0f,5.0f,0.0f };
+	glm::vec3 lastPosition;
 	glm::vec3 size = { 1.0f, 1.0f, 1.0f };
 	glm::fquat orientation;
-	glm::vec3 angularVelocity;
+	glm::fquat lastOrientation;
+	glm::vec3 angularMomentum;
+	glm::vec3 lastAngularMomentum;
 	glm::vec3 linearMomentum = { 0.0f,0.0f,0.0f };
+	glm::vec3 lastLinearMomentum;
 
 	//ASSIST
-	glm::vec3 linearSpeed;
 	glm::vec3 force = { 0,0,0 };
 	glm::vec3 forcePosition = { 0,0,0 };
-
-	glm::fquat angularAcceleration;
 
 	float tolerance = 0.75f;
 	float elasticity = 0.75f;
@@ -148,7 +156,6 @@ public:
 		extern bool renderCube;
 		renderCube = true;
 
-
 		position.x = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 4;
 		position.y = ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX))) * 8 + 1;
 		position.z = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 4;
@@ -156,12 +163,8 @@ public:
 		orientation.x = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1);
 		orientation.y = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1);
 		orientation.z = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1);
-		angularVelocity = { 0,0,0 };
+		angularMomentum = { 0,0,0 };
 		linearMomentum = { 0, 0, 0 };
-		linearSpeed = { 0,0,0 };
-
-		angularAcceleration = { 0,0,0,1 };
-
 
 		angularInertia.x = mass * (glm::exp2(size.y) + glm::exp2(size.z)) / 12;
 		angularInertia.y = mass * (glm::exp2(size.x) + glm::exp2(size.z)) / 12;
@@ -179,7 +182,7 @@ public:
 		extern bool renderParticles;
 		renderParticles = true;
 
-		LilSpheres::particleCount = 68;
+		LilSpheres::particleCount = 20 + 6 * 8;
 		glm::vec3 pointsPos[20];
 		glm::vec3 tempPos = forcePosition;
 		for (size_t i = 0; i < 20; i++)
@@ -188,13 +191,18 @@ public:
 			tempPos += force * float(0.005f * i);
 		}
 		LilSpheres::updateParticles(0, 20, &pointsPos[0].x);
-
 	}
 	void Update(float _dt) {
+		lastPosition = position;
+		lastOrientation = orientation;
+		lastAngularMomentum = angularMomentum;
+		lastLinearMomentum = linearMomentum;
+
 		SemiImplicitEuler(_dt);
 		for (size_t i = 0; i < planes.size(); i++)
 		{
-			intersectionWithPlane(i);
+			if (simulate)
+				simulate = !intersectionWithPlane(i);
 		}
 		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(position.x, position.y, position.z)); // Esto es temporal
 		glm::mat4 r = glm::toMat4(orientation);
@@ -227,7 +235,31 @@ public:
 		pointsPos[7] = LinePlaneCollision({ getRelativePoint({ -.5f, .5f, -.5f }), normal }, planes[i]);
 		LilSpheres::updateParticles(20 + i * 8, 8, &pointsPos[0].x);
 
-		return false;
+		float scales[8];
+		scales[0] = LinePlaneCollisionRange({ getRelativePoint({ .5f, .5f, .5f }), normal }, planes[i]);
+		scales[1] = LinePlaneCollisionRange({ getRelativePoint({ -.5f, .5f, .5f }), normal }, planes[i]);
+		scales[2] = LinePlaneCollisionRange({ getRelativePoint({ -.5f, -.5f, .5f }), normal }, planes[i]);
+		scales[3] = LinePlaneCollisionRange({ getRelativePoint({ -.5f, -.5f, -.5f }), normal }, planes[i]);
+		scales[4] = LinePlaneCollisionRange({ getRelativePoint({ .5f, -.5f, .5f }), normal }, planes[i]);
+		scales[5] = LinePlaneCollisionRange({ getRelativePoint({ .5f, -.5f, -.5f }), normal }, planes[i]);
+		scales[6] = LinePlaneCollisionRange({ getRelativePoint({ .5f, .5f, -.5f }), normal }, planes[i]);
+		scales[7] = LinePlaneCollisionRange({ getRelativePoint({ -.5f, .5f, -.5f }), normal }, planes[i]);
+
+		bool positive = scales[0] >= 0;
+		bool collided = false;
+		for (size_t i = 1; i < 8; i++)
+		{
+			if (positive && scales[i] < 0) {
+				collided = true;
+				break;
+			}
+			if (!positive && scales[i] >= 0) {
+				collided = true;
+				break;
+			}
+		}
+
+		return collided;
 	}
 
 	glm::vec3 getRelativePoint(glm::vec3 point) {
@@ -238,6 +270,10 @@ public:
 	}
 
 	void SemiImplicitEuler(float _dt) {
+		position = lastPosition;
+		orientation = lastOrientation;
+		angularMomentum = lastAngularMomentum;
+		linearMomentum = lastLinearMomentum;
 
 		//POSITION
 		/*
@@ -246,16 +282,16 @@ public:
 		v(t+dt) = P(t+dt) / M; // Velocity
 		x(t+dt) = x(t) + dt * v(t + dt); // Position
 		*/
-		linearMomentum = linearMomentum + _dt * (acceleration + force); // Linear momentum
-		linearSpeed = linearMomentum / mass;
+		linearMomentum += _dt * (acceleration + force); // Linear momentum
+		glm::vec3 linearSpeed = linearMomentum / mass;
 		position += _dt * linearSpeed;
 
 
 		//ROTATION
 
-		angularVelocity += glm::cross(force, (forcePosition - position)) * -angularInertia; // Momento angular
+		angularMomentum += glm::cross(force, (forcePosition - position)) * -angularInertia; // Momento angular
 		orientation = glm::normalize(orientation);
-		glm::fquat q(0, angularVelocity.x, angularVelocity.y, angularVelocity.z);
+		glm::fquat q(0, angularMomentum.x, angularMomentum.y, angularMomentum.z);
 		glm::fquat spin = 0.5f * q * orientation;
 		orientation += _dt * spin;
 		
