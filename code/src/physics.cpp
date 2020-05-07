@@ -138,7 +138,6 @@ public:
 
 
 		position = { 0.0f,5.0f,0.0f };
-		size = { 1.0f, 1.0f, 1.0f };
 		orientation = { 0,0,0,1 };
 		angularVelocity = { 0,0,0 };
 		linearMomentum = { 0, 0, 0 };
@@ -163,7 +162,7 @@ public:
 		extern bool renderParticles;
 		renderParticles = true;
 
-		LilSpheres::particleCount = 20;
+		LilSpheres::particleCount = 28;
 		glm::vec3 pointsPos[20];
 		glm::vec3 tempPos = forcePosition;
 		for (size_t i = 0; i < 20; i++)
@@ -176,6 +175,16 @@ public:
 	}
 	void Update(float _dt) {
 		SemiImplicitEuler(_dt);
+		glm::vec3 pointsPos[8];
+		pointsPos[0] = getRelativePoint({ .5f, .5f, .5f });
+		pointsPos[1] = getRelativePoint({ -.5f, .5f, .5f });
+		pointsPos[2] = getRelativePoint({ -.5f, -.5f, .5f });
+		pointsPos[3] = getRelativePoint({ -.5f, -.5f, -.5f });
+		pointsPos[4] = getRelativePoint({ .5f, -.5f, .5f });
+		pointsPos[5] = getRelativePoint({ .5f, -.5f, -.5f });
+		pointsPos[6] = getRelativePoint({ .5f, .5f, -.5f });
+		pointsPos[7] = getRelativePoint({ -.5f, .5f, -.5f });
+		LilSpheres::updateParticles(20, 8, &pointsPos[0].x);
 		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(position.x, position.y, position.z)); // Esto es temporal
 		glm::mat4 r = glm::toMat4(orientation);
 		glm::mat4 s = glm::scale(glm::mat4(), glm::vec3(size.x, size.y, size.z));
@@ -194,6 +203,13 @@ public:
 		Init();
 	}
 
+
+	glm::vec3 getRelativePoint(glm::vec3 point) {
+		point *= size;
+		point = orientation * point;
+		point += position;
+		return point;
+	}
 
 	void SemiImplicitEuler(float _dt) {
 
