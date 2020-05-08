@@ -18,6 +18,10 @@ extern void Exemple_PhysicsInit();
 extern void Exemple_PhysicsUpdate(float dt);
 extern void Exemple_PhysicsCleanup();
 
+// Debug
+void coutVec3(glm::vec3 tmp) {
+	std::cout << tmp.x << ", " << tmp.y << ", " << tmp.z << std::endl;
+}
 namespace Box {
 	extern GLuint cubeVao;
 	extern GLuint cubeVbo[];
@@ -244,16 +248,41 @@ public:
 				}
 
 				// Colision y posicion corregida
-
+				
 				forcePosition = getRelativePoint(cubePoints[coll.point]);
-				//force = glm::reflect(lastLinearMomentum, normal) * elasticity;
-				force = glm::reflect(lastLinearMomentum, normal) * elasticity;
-				//if (glm::dot(force, normal) > 0) {
-				//	force *= -1;
-				//}
+				
+				int helper = 4;
+				if (helper == 0) {// Reflect lineal
+					force = glm::reflect(lastLinearMomentum, normal) * elasticity; 
+				}
+				else if (helper == 1) { // Reflect linear + angular
+					force = glm::reflect( lastLinearMomentum - lastAngularMomentum, normal) * elasticity;
+				}
+				else if (helper == 2) { // Reflect angular, reflect linear, juntar
+					glm::vec3 tmpAng = glm::reflect(lastAngularMomentum, normal);
+					glm::vec3 tmpLin = glm::reflect(lastLinearMomentum, normal);
+					force = (tmpAng + tmpLin) * elasticity;
+
+				}
+				else if (helper == 3) { // No se
+					if (glm::dot(force, normal) > 0) {
+						force *= -1;
+					}
+				}
+				else if (helper == 4) { // Usar la fórmula de contact velocities
+					glm::vec3 impactSpeed = lastLinearMomentum + (glm::cross(lastAngularMomentum, (lastPosition - forcePosition)));
+					coutVec3(impactSpeed);
+					force = impactSpeed.length() >= 1.f ? glm::reflect(impactSpeed, normal) * elasticity : glm::vec3{ 0.0f, 0.0f,0.0f };
+				}
+				else if (helper == 5) { // Basandonos en la correccion de colision de impulso --> Av = J / M por lo tanto --> AV * M = J
+					force = -(lastLinearMomentum + lastAngularMomentum) * mass * elasticity;  
+				}
+		
+
+		
 				glm::vec3 pointsPos[20];
 				glm::vec3 tempPos = forcePosition;
-				for (size_t i = 0; i < 20; i++)
+				for (size_t i = 0; i < 20; i++) 
 				{
 					pointsPos[i] = tempPos;
 					tempPos += force * float(0.005f * i);
@@ -339,7 +368,7 @@ public:
 
 		//POSITION
 		/*
-		P(t+dt) = P(t) + dt * F(t); // Linear speed
+		P(t+dt) = P(t) + dt * F(t); // Linear momentum
 		L(t+dt) = L(t) + dt * te(t); // Angular momentum
 		v(t+dt) = P(t+dt) / M; // Velocity
 		x(t+dt) = x(t) + dt * v(t + dt); // Position
@@ -394,6 +423,8 @@ void GUI() {
 		ImGui::Checkbox("Show Intersections", &rigidBod.showIntersections);
 		ImGui::DragFloat3("Fix Force", &rigidBod.force[0], .01f);
 		ImGui::DragFloat3("Total Force", &rigidBod.accelForce[0], .01f);
+		ImGui::DragFloat3("LastAngMom", &rigidBod.lastAngularMomentum[0], .01f);
+		ImGui::DragFloat3("LastLinMom", &rigidBod.lastLinearMomentum[0], .01f);
 
 		if (ImGui::Button("Reset")) {
 			rigidBod.Reset();
