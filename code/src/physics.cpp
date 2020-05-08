@@ -155,7 +155,8 @@ public:
 	float forceScale = 10;
 	glm::vec3 forcePosition = { 0,0,0 };
 
-	float tolerance = 0.01f;
+	float tolerance = 0.1f;
+	float restitutionCoefficient = 0;
 	float elasticity = 0.75f;
 	//CONSTANTS
 	float mass = 1;
@@ -251,7 +252,7 @@ public:
 				
 				forcePosition = getRelativePoint(cubePoints[coll.point]);
 				
-				int helper = 4;
+				int helper = 6;
 				if (helper == 0) {// Reflect lineal
 					force = glm::reflect(lastLinearMomentum, normal) * elasticity; 
 				}
@@ -277,6 +278,26 @@ public:
 				else if (helper == 5) { // Basandonos en la correccion de colision de impulso --> Av = J / M por lo tanto --> AV * M = J
 					force = -(lastLinearMomentum + lastAngularMomentum) * mass * elasticity;  
 				}
+				else if (helper == 6) {
+					
+					glm::vec3 pato = lastLinearMomentum + glm::cross(lastAngularMomentum, (cubePoints[coll.point]));
+					float relVel = glm::dot(normal, pato);
+					float parteDeArriba = -(1.0f + (elasticity/10.0f)) * relVel;
+					std::cout << parteDeArriba << std::endl;
+					// inverseMass
+					// inverseMass del plano = 0
+					// normal del plano dot product
+					glm::vec3 dotHelp = glm::cross(cubePoints[coll.point], normal);
+					dotHelp = angularInertia * dotHelp;
+					glm::vec3 normCross = glm::cross(dotHelp, cubePoints[coll.point]);
+					float tmp = glm::dot(normal, normCross);
+					// Tensor de inercia * cross(Punto relativo, normal del plano)
+					// cross con Ra
+					// + 0
+					float j = parteDeArriba / (inverseMass + tmp);
+					force = j * normal;
+				}
+				
 		
 
 		
@@ -295,7 +316,7 @@ public:
 				lastOrientation = orientation;
 				lastAngularMomentum = angularMomentum;
 				lastLinearMomentum = linearMomentum;
-				SemiImplicitEuler(_dt);
+				SemiImplicitEuler(_dt * (1 - scalar));
 			}
 		}
 		glm::mat4 t = glm::translate(glm::mat4(), glm::vec3(position.x, position.y, position.z)); // Esto es temporal

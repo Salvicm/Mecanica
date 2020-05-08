@@ -1,9 +1,4 @@
 ﻿  physics.cpp
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(204,85): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
-          with
-          [
-              T=float
-          ]
 C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(205,85): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
           with
           [
@@ -14,12 +9,17 @@ C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(206,85): warning C
           [
               T=float
           ]
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(233,1): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(243,1): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(246,1): warning C4244: '-=': conversion from 'double' to 'float', possible loss of data
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(347,1): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(437,19): warning C4244: '=': conversion from 'time_t' to 'int', possible loss of data
-C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(445,21): warning C4244: '=': conversion from 'time_t' to 'int', possible loss of data
+C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(207,85): warning C4244: '=': conversion from 'double' to 'T', possible loss of data
+          with
+          [
+              T=float
+          ]
+C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(234,1): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(244,1): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(247,1): warning C4244: '-=': conversion from 'double' to 'float', possible loss of data
+C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(369,1): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(459,19): warning C4244: '=': conversion from 'time_t' to 'int', possible loss of data
+C:\Users\Salvi\Documents\Visual\Mecanica\code\src\physics.cpp(467,21): warning C4244: '=': conversion from 'time_t' to 'int', possible loss of data
   GL_framework.vcxproj -> C:\Users\Salvi\Documents\Visual\Mecanica\x64\Debug\GL_framework.exe
   0 archivo(s) copiado(s)
   0 archivo(s) copiado(s)
