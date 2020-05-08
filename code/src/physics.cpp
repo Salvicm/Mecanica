@@ -282,7 +282,7 @@ public:
 					
 					glm::vec3 pato = lastLinearMomentum + glm::cross(lastAngularMomentum, (cubePoints[coll.point]));
 					float relVel = glm::dot(normal, pato);
-					float parteDeArriba = -(1.0f + (elasticity/10.0f)) * relVel;
+					float parteDeArriba = -(1.0f + elasticity) * relVel;
 					std::cout << parteDeArriba << std::endl;
 					// inverseMass
 					// inverseMass del plano = 0
@@ -296,6 +296,10 @@ public:
 					// + 0
 					float j = parteDeArriba / (inverseMass + tmp);
 					force = j * normal;
+				}
+				else if (helper == 7) {
+					glm::vec3 pato = lastLinearMomentum + glm::cross(lastAngularMomentum, (cubePoints[coll.point]));
+					force = glm::reflect(pato, normal) * elasticity;
 				}
 				
 		
