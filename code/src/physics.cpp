@@ -108,27 +108,22 @@ bool checkWithPlane(const glm::vec3 originalPos, const glm::vec3 endPos, const g
 	float y = (endPos.x * plano.x) + (endPos.y * plano.y) + (endPos.z * plano.z) + plano.w;
 	return x * y < 0;
 }
-
 struct Line {
 	glm::vec3 point;
 	glm::vec3 direction;
 };
-
 float LinePlaneCollisionRange(const Line& line, const glm::vec4& plane) {
 	glm::vec3 normal = plane;
 	float dotPoint = glm::dot(normal, line.point);
 	float dotDirection = glm::dot(normal, line.direction);
 	return ((plane.w - dotPoint) / dotDirection);
 }
-
 glm::vec3 LinePoint(const Line & line, float range) {
 	return line.point + range * line.direction;
 }
 glm::vec3 LinePlaneCollision(const Line & line, const glm::vec4 & plane) {
 	return LinePoint(line, LinePlaneCollisionRange(line, plane));
 }
-
-
 #pragma endregion
 
 
@@ -150,7 +145,6 @@ public:
 	glm::vec3 inertiaTensor = { 0.0f,0.0f,0.0f };
 	glm::vec3 lastInertiaTensor = { 0.0f,0.0f,0.0f };
 	// DEBUG
-	glm::vec3 accelForce;
 	bool showIntersections = false;
 	//ASSIST
 	glm::vec3 force = { 0,0,0 };
@@ -158,8 +152,7 @@ public:
 	glm::vec3 forcePosition = { 0,0,0 };
 
 	float tolerance = 0.1f;
-	float restitutionCoefficient = 0;
-	float elasticity = 0.375f;
+	float elasticity = 0.25f;
 	//CONSTANTS
 	float mass = 1;
 	float inverseMass = 0;
@@ -239,7 +232,7 @@ public:
 				float scalar = 0.5f;
 				glm::vec3 normal = planes[i];
 				normal *= -1;
-				int j = 0;
+				int k = 0;
 				while (abs(coll.distance) > tolerance) {
 					SemiImplicitEuler(_dt * scalar);
 					coll.distance = LinePlaneCollisionRange({ getRelativePoint(cubePoints[coll.point]), normal }, planes[i]);
@@ -250,66 +243,33 @@ public:
 					else {
 						scalar -= scale * 0.5;
 					}
-					if (j > 10000) {
+					if (k > 10000) {
 						// en el caso de que haya demasiadas comprovaciones puede que haya fallado algo, preferimos reiniciar a que crashee
 						std::cout << "Demasiadas comprovaciones de colision" << std::endl;
 						Reset();
 						break;
 					}
-					j++;
+					k++;
 				}
 
 				// Colision y posicion corregida
 				
 				forcePosition = getRelativePoint(cubePoints[coll.point]);
-				
-				int helper = 6;
-				if (helper == 0) {// Reflect lineal
-					force = glm::reflect(lastLinearMomentum, normal) * elasticity; 
-				}
-				else if (helper == 1) { // Reflect linear + angular
-					force = glm::reflect( lastLinearMomentum - lastAngularMomentum, normal) * elasticity;
-				}
-				else if (helper == 2) { // Reflect angular, reflect linear, juntar
-					glm::vec3 tmpAng = glm::reflect(lastAngularMomentum, normal);
-					glm::vec3 tmpLin = glm::reflect(lastLinearMomentum, normal);
-					force = (tmpAng + tmpLin) * elasticity;
-
-				}
-				else if (helper == 3) { // No se
-					if (glm::dot(force, normal) > 0) {
-						force *= -1;
-					}
-				}
-				else if (helper == 4) { // Usar la fórmula de contact velocities
-					glm::vec3 impactSpeed = lastLinearMomentum + (glm::cross(lastAngularMomentum, (lastPosition - forcePosition)));
-					coutVec3(impactSpeed);
-					force = impactSpeed.length() >= 1.f ? glm::reflect(impactSpeed, normal) * elasticity : glm::vec3{ 0.0f, 0.0f,0.0f };
-				}
-				else if (helper == 5) { // Basandonos en la correccion de colision de impulso --> Av = J / M por lo tanto --> AV * M = J
-					force = -(lastLinearMomentum + lastAngularMomentum) * mass * elasticity;  
-				}
-				else if (helper == 6) {
-					
-					glm::vec3 pato = lastLinearMomentum + glm::cross(lastAngularMomentum, (cubePoints[coll.point]));
-					float relVel = glm::dot(normal, pato); // pb(t0) = 0
-					float parteDeArriba = -(1 + elasticity) * relVel;
-					// normal del plano dot product
-					glm::vec3 crossHelp = glm::cross(cubePoints[coll.point], normal);
-					crossHelp = lastInertiaTensor * crossHelp; 
-					glm::vec3 normCross = glm::cross(crossHelp, cubePoints[coll.point]);
-					float tmp = glm::dot(normal, normCross);
-					// Tensor de inercia * cross(Punto relativo, normal del plano)
-					// cross con Ra
-					// + 0
-					float j = parteDeArriba / (inverseMass + tmp);
-					force = j * normal;
-				}
-				else if (helper == 7) {
-					glm::vec3 pato = lastLinearMomentum + glm::cross(lastAngularMomentum, (cubePoints[coll.point]));
-					force = glm::reflect(pato, normal) * elasticity;
-				}
-				
+		
+				glm::vec3 pato = lastLinearMomentum + glm::cross(lastAngularMomentum, (cubePoints[coll.point]));
+				float relVel = glm::dot(normal, pato); // pb(t0) = 0
+				float parteDeArriba = -(1 + elasticity/2.0f) * relVel;
+				// normal del plano dot product
+				glm::vec3 crossHelp = glm::cross(cubePoints[coll.point], normal);
+				crossHelp = lastInertiaTensor * crossHelp; 
+				glm::vec3 normCross = glm::cross(crossHelp, cubePoints[coll.point]);
+				float tmp = glm::dot(normal, normCross);
+				// Tensor de inercia * cross(Punto relativo, normal del plano)
+				// cross con Ra
+				// + 0
+				float j = parteDeArriba / (inverseMass + tmp);
+				force = j * normal;
+	
 		
 
 		
@@ -409,7 +369,6 @@ public:
 		x(t+dt) = x(t) + dt * v(t + dt); // Position
 		*/
 		linearMomentum += (acceleration + force); // Linear momentum
-		accelForce = acceleration + force;
 		glm::vec3 linearSpeed = linearMomentum * inverseMass;
 		position += _dt * linearSpeed;
 
@@ -430,7 +389,7 @@ public:
 bool show_test_window = false;
 void GUI() {
 	bool show = true;
-	ImGui::Begin("Practica rigidbodies", &show, 0);
+	ImGui::Begin("[AA4 - Alegre/Calvillo]Practica rigidbodies", &show, 0);
 	{
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 		ImGui::Spacing();
@@ -457,10 +416,7 @@ void GUI() {
 		ImGui::Spacing();
 		ImGui::Text("Debug: ");
 		ImGui::Checkbox("Show Intersections", &rigidBod.showIntersections);
-		ImGui::DragFloat3("Fix Force", &rigidBod.force[0], .01f);
-		ImGui::DragFloat3("Total Force", &rigidBod.accelForce[0], .01f);
-		ImGui::DragFloat3("LastAngMom", &rigidBod.lastAngularMomentum[0], .01f);
-		ImGui::DragFloat3("LastLinMom", &rigidBod.lastLinearMomentum[0], .01f);
+
 
 		if (ImGui::Button("Reset")) {
 			rigidBod.Reset();
