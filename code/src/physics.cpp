@@ -147,6 +147,8 @@ public:
 	glm::vec3 lastAngularMomentum;
 	glm::vec3 linearMomentum = { 0.0f,0.0f,0.0f };
 	glm::vec3 lastLinearMomentum;
+	glm::vec3 inertiaTensor = { 0.0f,0.0f,0.0f };
+	glm::vec3 lastInertiaTensor = { 0.0f,0.0f,0.0f };
 	// DEBUG
 	glm::vec3 accelForce;
 	bool showIntersections = false;
@@ -161,7 +163,7 @@ public:
 	//CONSTANTS
 	float mass = 1;
 	float inverseMass = 0;
-	glm::vec3 angularInertia = { 0,0,0 };
+	glm::vec3 iBody = { 0,0,0 };
 	struct CollisionInfo {
 		bool collided = false;
 		int point = -1;
@@ -184,9 +186,9 @@ public:
 		angularMomentum = { 0,0,0 };
 		linearMomentum = { 0, 0, 0 };
 
-		angularInertia.x = mass * (glm::exp2(size.y) + glm::exp2(size.z)) / 12;
-		angularInertia.y = mass * (glm::exp2(size.x) + glm::exp2(size.z)) / 12;
-		angularInertia.z = mass * (glm::exp2(size.x) + glm::exp2(size.y)) / 12;
+		iBody.x = mass * (glm::exp2(size.y) + glm::exp2(size.z)) / 12;
+		iBody.y = mass * (glm::exp2(size.x) + glm::exp2(size.z)) / 12;
+		iBody.z = mass * (glm::exp2(size.x) + glm::exp2(size.y)) / 12;
 		inverseMass = 1 / mass;
 
 		cubePoints[0] = { .5f, .5f, .5f };
@@ -226,6 +228,7 @@ public:
 		lastOrientation = orientation;
 		lastAngularMomentum = angularMomentum;
 		lastLinearMomentum = linearMomentum;
+		lastInertiaTensor = inertiaTensor;
 
 		SemiImplicitEuler(_dt);
 
@@ -236,6 +239,7 @@ public:
 				float scalar = 0.5f;
 				glm::vec3 normal = planes[i];
 				normal *= -1;
+				int j = 0;
 				while (abs(coll.distance) > tolerance) {
 					SemiImplicitEuler(_dt * scalar);
 					coll.distance = LinePlaneCollisionRange({ getRelativePoint(cubePoints[coll.point]), normal }, planes[i]);
@@ -246,6 +250,13 @@ public:
 					else {
 						scalar -= scale * 0.5;
 					}
+					if (j > 10000) {
+						// en el caso de que haya demasiadas comprovaciones puede que haya fallado algo, preferimos reiniciar a que crashee
+						std::cout << "Demasiadas comprovaciones de colision" << std::endl;
+						Reset();
+						break;
+					}
+					j++;
 				}
 
 				// Colision y posicion corregida
@@ -281,15 +292,12 @@ public:
 				else if (helper == 6) {
 					
 					glm::vec3 pato = lastLinearMomentum + glm::cross(lastAngularMomentum, (cubePoints[coll.point]));
-					float relVel = glm::dot(normal, pato);
-					float parteDeArriba = -(1.0f + elasticity) * relVel;
-					std::cout << parteDeArriba << std::endl;
-					// inverseMass
-					// inverseMass del plano = 0
+					float relVel = glm::dot(normal, pato); // pb(t0) = 0
+					float parteDeArriba = -(1 + elasticity / 2.0f) * relVel;
 					// normal del plano dot product
-					glm::vec3 dotHelp = glm::cross(cubePoints[coll.point], normal);
-					dotHelp = angularInertia * dotHelp;
-					glm::vec3 normCross = glm::cross(dotHelp, cubePoints[coll.point]);
+					glm::vec3 crossHelp = glm::cross(cubePoints[coll.point], normal);
+					crossHelp = lastInertiaTensor * crossHelp; 
+					glm::vec3 normCross = glm::cross(crossHelp, cubePoints[coll.point]);
 					float tmp = glm::dot(normal, normCross);
 					// Tensor de inercia * cross(Punto relativo, normal del plano)
 					// cross con Ra
@@ -320,6 +328,7 @@ public:
 				lastOrientation = orientation;
 				lastAngularMomentum = angularMomentum;
 				lastLinearMomentum = linearMomentum;
+				lastInertiaTensor = inertiaTensor;
 				SemiImplicitEuler(_dt * (1 - scalar));
 			}
 		}
@@ -388,6 +397,7 @@ public:
 	void SemiImplicitEuler(const float _dt) {
 		position = lastPosition;
 		orientation = lastOrientation;
+		inertiaTensor = lastInertiaTensor;
 		angularMomentum = lastAngularMomentum;
 		linearMomentum = lastLinearMomentum;
 
@@ -406,7 +416,8 @@ public:
 
 		//ROTATION
 
-		angularMomentum += glm::cross(force, (forcePosition - position)) * -angularInertia; // Momento angular
+		inertiaTensor = glm::toMat3(orientation) * iBody * glm::toMat3(orientation);
+		angularMomentum += glm::cross(force, (forcePosition - position)) * -iBody; // Momento angular
 		orientation = glm::normalize(orientation);
 		glm::fquat q(0, angularMomentum.x, angularMomentum.y, angularMomentum.z);
 		glm::fquat spin = 0.5f * q * orientation;
