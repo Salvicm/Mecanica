@@ -1,5 +1,5 @@
-Bones. Som el grup de l'Alberto Alegre i el Salvio Calvillo.
-Abans d'executar el programa, es important que sapigues que hem implementat diversos modes d'execució, secuencial, en paralel i en multithreading.
-En cas de tenir el paral·lel disponible recomenem activar aquest mode, es el mes eficient i es natiu de C++17, en cas de no tenir-ho disponible al teu pc, el programa no et deixarà activar-ho.
-En cas de posar-ho en secuencial, recomenem no posar el máxim de partícules, ja que pot anar lent.
-No recomenem fer servir el multithreading.
+No hemos conseguido que los rebotes funcionen correctamente con la formula proporcionada en clase, entendemos que es lo correcto pero no sabemos donde nos está fallando. Sin embargo, el semi implicit euler, la detección de colisiones, y la corrección de la posición en caso de colisión nos está funcionando correctamente.
+
+Hemos añadido unas lineas de puntos que indican la fuerza donde se aplica, su direccion y su magnitud.
+
+El editor de parametros tiene un campo llamado Seed, este campo, cuando se termina el tiempo de reseteo genera otra seed y reinicia el cubo. Se puede poner un numero manualmente y probar el mismo spawn tantas veces como se quiera.
