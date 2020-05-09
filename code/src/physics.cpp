@@ -159,7 +159,7 @@ public:
 
 	float tolerance = 0.1f;
 	float restitutionCoefficient = 0;
-	float elasticity = 0.75f;
+	float elasticity = 0.375f;
 	//CONSTANTS
 	float mass = 1;
 	float inverseMass = 0;
@@ -293,7 +293,7 @@ public:
 					
 					glm::vec3 pato = lastLinearMomentum + glm::cross(lastAngularMomentum, (cubePoints[coll.point]));
 					float relVel = glm::dot(normal, pato); // pb(t0) = 0
-					float parteDeArriba = -(1 + elasticity / 2.0f) * relVel;
+					float parteDeArriba = -(1 + elasticity) * relVel;
 					// normal del plano dot product
 					glm::vec3 crossHelp = glm::cross(cubePoints[coll.point], normal);
 					crossHelp = lastInertiaTensor * crossHelp; 
@@ -448,7 +448,7 @@ void GUI() {
 		ImGui::Text("Object Settings:");
 		ImGui::DragFloat3("Cube Position", &rigidBod.position[0], .01f);
 		ImGui::DragFloat3("Cube Size", &rigidBod.size[0], .01f);
-		ImGui::SliderFloat("Elasticity", &rigidBod.elasticity, .01f, 1.f);
+		ImGui::SliderFloat("Elasticity", &rigidBod.elasticity, .0f, 0.5f);
 		ImGui::SliderFloat("Tolerance", &rigidBod.tolerance, .001f, .1f);
 		ImGui::SliderFloat("Mass", &rigidBod.mass, .01f, 5.f);
 		ImGui::SliderFloat("ForceScale", &rigidBod.forceScale, .01f, 20.f);
