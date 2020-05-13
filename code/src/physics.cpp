@@ -43,6 +43,7 @@ namespace LilSpheres {
 glm::vec3 acceleration = { 0,-9.81,0 };
 float simulationSpeed = 1;
 bool simulate = true;
+float totalTime = 0;
 
 void Reset() {
 
@@ -52,15 +53,30 @@ void Reset() {
 
 class Ball {
 	glm::vec3 position;
+	glm::vec3 spawnPosition = {0,9,0};
+	float nextTime = 0;
+public:
+	bool simulate = true;
 	float radius = 1;
 	float mass = 1;
-public:
+	float resetTime = 15.f;
 	void Init() {
 		extern bool renderSphere;
-		//renderSphere = true;
+		renderSphere = true;
+		Spawn();
 		Sphere::setupSphere(position, radius);
 	}
+	void Spawn() {
+		position = spawnPosition;
+		position.x += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2.5f;
+		position.y += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2.5f;
+		position.z += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2.5f;
+		nextTime = totalTime + resetTime;
+	}
 	void Update(float dt) {
+		if (nextTime < totalTime) {
+			Spawn();
+		}
 		Sphere::updateSphere(position, radius);
 	}
 	void Cleanup() {
@@ -123,6 +139,7 @@ public:
 
 	glm::vec3  PARTICLE_START_POSITION = { 0,3,0 };
 	float  PARTICLE_DISTANCE = 0.7f;
+	float density = 1;
 
 	int const RESOLUTION_X = 14;
 	int const RESOLUTION_Y = 18;
@@ -138,7 +155,6 @@ public:
 	Noise rand;
 #endif
 
-	float totalTime = 0;
 
 
 
@@ -260,7 +276,6 @@ public:
 #endif
 			positions[i] = newPos;
 		}
-		totalTime += dt;
 
 
 		ClothMesh::updateClothMesh(&positions[0].x);
@@ -294,6 +309,12 @@ void GUI() {
 		ImGui::Checkbox("Run simulation", &simulate);
 		if (simulate) {
 			ImGui::SliderFloat("Simulation speed", &simulationSpeed, 0, 2);
+		}
+		ImGui::Spacing();
+		ImGui::Checkbox("Sphere", &ball.simulate);
+		if (ball.simulate) {
+			ImGui::DragFloat("Radius", &ball.radius, .01f);
+			ImGui::DragFloat("Mass", &ball.mass, .01f);
 		}
 
 		ImGui::Spacing();
@@ -361,7 +382,9 @@ void PhysicsUpdate(float dt) {
 	srand(time(NULL));
 	if (simulate) {
 		fluid.Update(dt * simulationSpeed);
-		ball.Update(dt * simulationSpeed);
+		if (ball.simulate)
+			ball.Update(dt * simulationSpeed);
+		totalTime += dt * simulationSpeed;
 	}
 }
 
