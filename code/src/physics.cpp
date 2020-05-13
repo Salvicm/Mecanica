@@ -120,7 +120,10 @@ void GUI() {
 
 	{
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-
+		ImGui::Checkbox("Run simulation", &simulate);
+		if (simulate) {
+			ImGui::SliderFloat("Simulation speed", &simulationSpeed, 0, 2);
+		}
 	}
 
 	ImGui::End();
@@ -132,8 +135,10 @@ void PhysicsInit() {
 }
 
 void PhysicsUpdate(float dt) {
-	fluid.Update(dt);
-	ball.Update(dt);
+	if (simulate) {
+		fluid.Update(dt * simulationSpeed);
+		ball.Update(dt * simulationSpeed);
+	}
 }
 
 void PhysicsCleanup() {
