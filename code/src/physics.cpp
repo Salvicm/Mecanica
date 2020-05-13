@@ -99,6 +99,15 @@ struct Wave {
 		lambda = 1.f;
 		phase = glm::half_pi<float>();
 	}
+	void Random() {
+		amplitude = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1);
+		frequency = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 5;
+		vector = { ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1),
+		((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1),
+		((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) };
+		length = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 3;
+		lambda = ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1);
+	}
 };
 
 #if PERLIN
@@ -361,8 +370,10 @@ void GUI() {
 		if (newWaveCount < 0)
 			newWaveCount = 0;
 		if (newWaveCount != fluid.waves.size()) {
+			Wave temp;
 			while (newWaveCount > fluid.waves.size()) {
-				fluid.waves.push_back(Wave());
+				temp.Random();
+				fluid.waves.push_back(temp);
 			}
 			while (newWaveCount < fluid.waves.size()) {
 				fluid.waves.pop_back();
