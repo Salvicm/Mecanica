@@ -104,7 +104,6 @@ struct Noise {
 #endif
 
 struct WaveType {
-	std::string name = "Custom";
 	std::vector<Wave> waves;
 	WaveType() {
 		Wave tempWave;
@@ -113,13 +112,12 @@ struct WaveType {
 		tempWave.vector = { 1,0,1 };
 		waves.push_back(tempWave);
 	}
-#if PERLIN
 	glm::vec3 speed = { 0,0,0 };
 	glm::vec3 influence = { 0,0,0 };
 	float scale = 0;
-#endif
 };
-
+const int waveTypesMax = 3;
+WaveType waveTypes[waveTypesMax];
 class Fluid {
 public:
 
@@ -134,7 +132,7 @@ public:
 	glm::vec3* positions;
 	glm::vec3* originalPositions;
 	// Totes les fórmules
-	std::vector<WaveType> waveTypes;
+	int selectedWave;
 	std::vector<Wave> waves;
 #if PERLIN
 	Noise rand;
@@ -158,9 +156,41 @@ public:
 	void Init()
 	{
 		// Inicialitzem una fórmula per ara
-		waveTypes.push_back(WaveType());
-		SetWaveType(WaveType());
-
+		selectedWave = 0;
+		SetWaveType(waveTypes[0]);
+		{
+			WaveType tempType;
+			tempType.waves.clear();
+			Wave tempWave;
+			tempWave.amplitude = .7f;
+			tempWave.frequency = 3;
+			tempWave.lambda = 0;
+			tempWave.length = .72;
+			tempWave.vector = { .2f, 0, -1 };
+			tempType.waves.push_back(tempWave);
+			tempType.waves.push_back(Wave());
+			tempType.influence = { .2f,.1f,.2f };
+			tempType.speed = { 1,0,5 };
+			tempType.scale = .5f;
+			waveTypes[1] = tempType;
+		}
+		{
+			WaveType tempType;
+			tempType.waves.clear();
+			Wave tempWave;
+			tempWave.amplitude = .05f;
+			tempType.waves.push_back(tempWave);
+			tempWave.frequency = 2;
+			tempWave.vector = {1,0,-1};
+			tempType.waves.push_back(tempWave);
+			tempWave.frequency = 1;
+			tempWave.vector = {-1,0,-1};
+			tempType.waves.push_back(tempWave);
+			tempType.influence = { .2f,.1f,.2f };
+			tempType.speed = { 1,0,5 };
+			tempType.scale = .5f;
+			waveTypes[2] = tempType;
+		}
 #if PERLIN
 		rand.noise.SetNoiseType(FastNoise::NoiseType::Value);
 		rand.noise.SetFrequency(rand.frequency);
@@ -268,6 +298,14 @@ void GUI() {
 
 		ImGui::Spacing();
 		ImGui::Text("Fluid:");
+		{
+			int newPreset = fluid.selectedWave;
+			ImGui::Combo("Wave type", &newPreset, "Custom\0Sea\0Lake");
+			if (newPreset != fluid.selectedWave) {
+				fluid.SetWaveType(waveTypes[newPreset]);
+				fluid.selectedWave = newPreset;
+			}
+		}
 		ImGui::Spacing();
 #if PERLIN
 		ImGui::DragFloat3("Noise influence", &fluid.rand.influence[0], .01f);
