@@ -35,54 +35,71 @@ namespace ClothMesh {
 namespace LilSpheres {
 	extern void updateParticles(int startIdx, int count, float* array_data);
 	extern int particleCount;
-
 }
 
 #pragma region PHYSICS
 
-glm::vec3 acceleration = { 0,-9.81,0 };
+glm::vec3 acceleration = { 0,-0.981f,0 };
 float simulationSpeed = 1;
 bool simulate = true;
 float totalTime = 0;
 
-void Reset() {
+struct Line {
+	glm::vec3 point;
+	glm::vec3 direction;
+};
+float LinePlaneCollisionRange(const Line& line, const glm::vec4& plane) {
+	glm::vec3 normal = plane;
+	float dotPoint = glm::dot(normal, line.point);
+	float dotDirection = glm::dot(normal, line.direction);
+	return ((plane.w - dotPoint) / dotDirection);
+}
+glm::vec3 LinePoint(const Line& line, float range) {
+	return line.point + range * line.direction;
+}
+glm::vec3 LinePlaneCollision(const Line& line, const glm::vec4& plane) {
+	return LinePoint(line, LinePlaneCollisionRange(line, plane));
+}
 
+//glm::vec4 GetPlaneUp(const glm::vec3& A, const glm::vec3& B, const glm::vec3& C) {
+//	glm::vec4 plane = { 0,1,0, 5 };
+//
+//	float a1 = B.x - A.x;
+//	float b1 = B.y - A.y;
+//	float c1 = B.z - A.z;
+//	float a2 = C.x - A.x;
+//	float b2 = C.y - A.y;
+//	float c2 = C.z - A.z;
+//	float a = b1 * c2 - b2 * c1;
+//	float b = a2 * c1 - a1 * c2;
+//	float c = a1 * b2 - b1 * a2;
+//	float d = (-a * A.x - b * A.y - c * A.z);
+//	plane.x = a;
+//	plane.y = b;
+//	plane.z = c;
+//	plane.w = d;
+//	return plane;
+//}
+glm::vec4 GetPlaneUpGLM(const glm::vec3& A, const glm::vec3& B, const glm::vec3& C) {
+	glm::vec4 plane = { 0,1,0, 5 };
+	glm::vec3 AB = B - A;
+	glm::vec3 AC = C - A;
+	glm::vec3 normal = glm::cross(AB, AC);
+	normal = glm::normalize(normal);
+	if (glm::dot(normal, glm::vec3(0, 1, 0)) < 0) {
+		normal *= -1;
+	}
+
+	float d = (-normal.x * A.x - normal.y * A.y - normal.z * A.z);
+	plane.x = normal.x;
+	plane.y = normal.y;
+	plane.z = normal.z;
+	plane.w = d;
+	return plane;
 }
 
 #pragma endregion
 
-class Ball {
-	glm::vec3 position;
-	glm::vec3 spawnPosition = {0,9,0};
-	float nextTime = 0;
-public:
-	bool simulate = true;
-	float radius = 1;
-	float mass = 1;
-	float resetTime = 15.f;
-	void Init() {
-		extern bool renderSphere;
-		renderSphere = true;
-		Spawn();
-		Sphere::setupSphere(position, radius);
-	}
-	void Spawn() {
-		position = spawnPosition;
-		position.x += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2.5f;
-		position.y += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2.5f;
-		position.z += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2.5f;
-		nextTime = totalTime + resetTime;
-	}
-	void Update(float dt) {
-		if (nextTime < totalTime) {
-			Spawn();
-		}
-		Sphere::updateSphere(position, radius);
-	}
-	void Cleanup() {
-		Sphere::cleanupSphere();
-	}
-};
 
 struct Wave {
 	float amplitude;
@@ -306,6 +323,114 @@ public:
 	}
 };
 
+class Ball {
+	glm::vec3 position;
+	glm::vec3 spawnPosition = { 0,5,0 };
+	glm::vec3 linearMomentum = { 0.0f,0.0f,0.0f };
+	glm::vec3 force = { 0,0,0 };
+	float nextTime = 0;
+public:
+	bool simulate = true;
+	bool simulateDirection = false;
+	float radius = 1;
+	float mass = 1;
+	float resetTime = 15.f;
+	void Init() {
+		extern bool renderSphere;
+		renderSphere = true;
+
+		extern bool renderParticles;
+		renderParticles = true;
+		LilSpheres::particleCount = 3;
+
+		Spawn();
+		Sphere::setupSphere(position, radius);
+	}
+	void Spawn() {
+		linearMomentum = { 0.0f,0.0f,0.0f };
+		force = { 0,0,0 };
+		position = spawnPosition;
+		position.x += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2.5f;
+		position.y += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2.5f;
+		position.z += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2.5f;
+		nextTime = totalTime + resetTime;
+	}
+	void Update(float dt, const Fluid& fluid) {
+		if (nextTime < totalTime) {
+			Spawn();
+		}
+		force = { 0,0,0 };
+		CalculateDisplacement(getNearestPlane(fluid), fluid.density);
+		SemiImplicitEuler(dt);
+		Sphere::updateSphere(position, radius);
+	}
+
+	glm::vec4 getNearestPlane(const Fluid& fluid) {
+		glm::vec3 points[3];
+		points[0] = points[1] = points[2] = fluid.positions[0];
+		glm::vec3 pos = position;
+		//pos -= glm::vec3(0, 1, 0) * radius;
+		pos.y = 0;
+		for (size_t i = 1; i < fluid.RESOLUTION; i++)
+		{
+			if (glm::distance(fluid.positions[i], glm::vec3(pos.x, fluid.positions[i].y, pos.z)) < glm::distance(points[0], glm::vec3(pos.x, points[0].y, pos.z))) {
+				points[2] = points[1];
+				points[1] = points[0];
+				points[0] = fluid.positions[i];
+			}
+		}
+		LilSpheres::updateParticles(0, 3, &points[0].x);
+		//std::cout << "P: " << position.x << ", " << position.y << ", " << position.z << std::endl;
+		//std::cout << "A: " << points[0].x << ", " << points[0].y << ", " << points[0].z << std::endl;
+		//std::cout << "B: " << points[1].x << ", " << points[1].y << ", " << points[1].z << std::endl;
+		//std::cout << "C: " << points[2].x << ", " << points[2].y << ", " << points[2].z << std::endl;
+		//glm::vec4 plane = GetPlaneUp(points[0], points[1], points[2]);
+		//glm::vec4 planeGLM = GetPlaneUpGLM(points[0], points[1], points[2]);
+		return GetPlaneUpGLM(points[0], points[1], points[2]);
+	}
+
+	void CalculateDisplacement(const glm::vec4& plane, float fluidDensity) {
+		glm::vec3 planeNormal = plane;
+		planeNormal = glm::normalize(planeNormal);
+		float sliceValue = LinePlaneCollisionRange({ position, planeNormal }, plane);
+		glm::vec3 slicePoint = LinePoint({ position, planeNormal }, sliceValue);
+		if (sliceValue > 0) {
+			float volumeDisplaced = 0;
+			if (sliceValue > radius* radius) {
+				planeNormal = { 0,1,0 };
+				volumeDisplaced = (4 / 3) * glm::pi<float>() * radius * radius * radius;
+			}
+			else if (sliceValue > radius) {
+				sliceValue = fmod(sliceValue, radius);
+				float notDisplaced = (glm::pi<float>() * sliceValue * sliceValue) / 3;
+				notDisplaced *= ((3 * radius) - sliceValue);
+				float sphereVolume = (4 / 3) * glm::pi<float>() * radius * radius * radius;
+				volumeDisplaced = sphereVolume - notDisplaced;
+			}
+			else {
+				volumeDisplaced = (glm::pi<float>() * sliceValue * sliceValue) / 3;
+				volumeDisplaced *= ((3 * radius) - sliceValue);
+			}
+			if (!simulateDirection) {
+				planeNormal = { 0,-1,0 };
+				force += fluidDensity * volumeDisplaced * acceleration * planeNormal;
+			}
+			else {
+				force += fluidDensity * volumeDisplaced * planeNormal * glm::length(acceleration);
+			}
+		}
+	}
+
+	void SemiImplicitEuler(const float _dt) {
+		linearMomentum += (acceleration + force);
+		position += _dt * (linearMomentum / mass);
+	}
+
+	void Cleanup() {
+		Sphere::cleanupSphere();
+	}
+};
+
 Ball ball;
 Fluid fluid;
 bool show_test_window = false;
@@ -318,16 +443,22 @@ void GUI() {
 		ImGui::Checkbox("Run simulation", &simulate);
 		if (simulate) {
 			ImGui::SliderFloat("Simulation speed", &simulationSpeed, 0, 2);
+			ImGui::DragFloat3("Acceleration", &acceleration.x, .01f);
 		}
 		ImGui::Spacing();
 		ImGui::Checkbox("Sphere", &ball.simulate);
 		if (ball.simulate) {
 			ImGui::DragFloat("Radius", &ball.radius, .01f);
 			ImGui::DragFloat("Mass", &ball.mass, .01f);
+			ImGui::Checkbox("Emulate direction", &ball.simulateDirection);
+			if (ImGui::Button("Reset")) {
+				ball.Spawn();
+			}
 		}
 
 		ImGui::Spacing();
 		ImGui::Text("Fluid:");
+		ImGui::SliderFloat("Density", &fluid.density, 0, 10);
 		{
 			int newPreset = fluid.selectedWave;
 			ImGui::Combo("Wave type", &newPreset, "Custom\0Sea\0Lake");
@@ -394,7 +525,7 @@ void PhysicsUpdate(float dt) {
 	if (simulate) {
 		fluid.Update(dt * simulationSpeed);
 		if (ball.simulate)
-			ball.Update(dt * simulationSpeed);
+			ball.Update(dt * simulationSpeed, fluid);
 		totalTime += dt * simulationSpeed;
 	}
 }
