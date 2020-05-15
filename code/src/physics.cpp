@@ -61,36 +61,38 @@ glm::vec3 LinePlaneCollision(const Line& line, const glm::vec4& plane) {
 	return LinePoint(line, LinePlaneCollisionRange(line, plane));
 }
 
-//glm::vec4 GetPlaneUp(const glm::vec3& A, const glm::vec3& B, const glm::vec3& C) {
-//	glm::vec4 plane = { 0,1,0, 5 };
-//
-//	float a1 = B.x - A.x;
-//	float b1 = B.y - A.y;
-//	float c1 = B.z - A.z;
-//	float a2 = C.x - A.x;
-//	float b2 = C.y - A.y;
-//	float c2 = C.z - A.z;
-//	float a = b1 * c2 - b2 * c1;
-//	float b = a2 * c1 - a1 * c2;
-//	float c = a1 * b2 - b1 * a2;
-//	float d = (-a * A.x - b * A.y - c * A.z);
-//	plane.x = a;
-//	plane.y = b;
-//	plane.z = c;
-//	plane.w = d;
-//	return plane;
-//}
+glm::vec4 GetPlaneUp(const glm::vec3& A, const glm::vec3& B, const glm::vec3& C) {
+	glm::vec4 plane = { 0,1,0, 5 };
+
+	float a1 = B.x - A.x;
+	float b1 = B.y - A.y;
+	float c1 = B.z - A.z;
+	float a2 = C.x - A.x;
+	float b2 = C.y - A.y;
+	float c2 = C.z - A.z;
+	float a = b1 * c2 - b2 * c1;
+	float b = a2 * c1 - a1 * c2;
+	float c = a1 * b2 - b1 * a2;
+	float d = (-a * A.x - b * A.y - c * A.z);
+	plane.x = a;
+	plane.y = b;
+	plane.z = c;
+	plane.w = d;
+	return plane;
+}
 glm::vec4 GetPlaneUpGLM(const glm::vec3& A, const glm::vec3& B, const glm::vec3& C) {
 	glm::vec4 plane = { 0,1,0, 5 };
 	glm::vec3 AB = B - A;
 	glm::vec3 AC = C - A;
 	glm::vec3 normal = glm::cross(AB, AC);
 	normal = glm::normalize(normal);
+
+	float d = (-normal.x * A.x - normal.y * A.y - normal.z * A.z);
+
 	if (glm::dot(normal, glm::vec3(0, 1, 0)) < 0) {
 		normal *= -1;
 	}
 
-	float d = (-normal.x * A.x - normal.y * A.y - normal.z * A.z);
 	plane.x = normal.x;
 	plane.y = normal.y;
 	plane.z = normal.z;
@@ -394,13 +396,13 @@ public:
 		planeNormal = glm::normalize(planeNormal);
 		float sliceValue = LinePlaneCollisionRange({ position, planeNormal }, plane);
 		glm::vec3 slicePoint = LinePoint({ position, planeNormal }, sliceValue);
-		if (sliceValue > 0) {
+		if (sliceValue > -radius) {
 			float volumeDisplaced = 0;
-			if (sliceValue > radius* radius) {
+			if (sliceValue > radius) {
 				planeNormal = { 0,1,0 };
 				volumeDisplaced = (4 / 3) * glm::pi<float>() * radius * radius * radius;
 			}
-			else if (sliceValue > radius) {
+			else if (sliceValue > 0) {
 				sliceValue = fmod(sliceValue, radius);
 				float notDisplaced = (glm::pi<float>() * sliceValue * sliceValue) / 3;
 				notDisplaced *= ((3 * radius) - sliceValue);
