@@ -283,12 +283,8 @@ public:
 	const glm::vec3 GetPoint(glm::vec3 position) {
 		glm::vec3 tmpVec = glm::vec3(0.0f, 0.0f, 0.0f);
 		float tmpY = position.y;
-		for (int j = 0; j < waves.size(); j++) // J = onda actual
+		for (int j = 0; j < waves.size(); j++)
 		{
-
-			//std::cout << randomFactor << std::endl;
-
-			// std::cout << waveLength * amplitudes[j] << std::endl; // Si la onda hace cosas raras es qüe la amplitüd es demasiado o el waveVec tambien, testear aquí
 			float tmpSin = glm::dot(waves[j].vector, position) - (waves[j].frequency * totalTime) + waves[j].phase;
 			tmpVec += ((waves[j].vector / glm::length(waves[j].length)) * waves[j].amplitude * glm::sin(tmpSin));
 
@@ -377,7 +373,6 @@ public:
 	glm::vec4 getNearestPlane(const Fluid& fluid) {
 		nearestPoints[0] = nearestPoints[1] = nearestPoints[2] = fluid.positions[0];
 		glm::vec3 pos = position;
-		//pos -= glm::vec3(0, 1, 0) * radius;
 		pos.y = 0;
 		for (size_t i = 1; i < fluid.RESOLUTION; i++)
 		{
@@ -388,12 +383,6 @@ public:
 			}
 		}
 		LilSpheres::updateParticles(0, 3, &nearestPoints[0].x);
-		//std::cout << "P: " << position.x << ", " << position.y << ", " << position.z << std::endl;
-		//std::cout << "A: " << points[0].x << ", " << points[0].y << ", " << points[0].z << std::endl;
-		//std::cout << "B: " << points[1].x << ", " << points[1].y << ", " << points[1].z << std::endl;
-		//std::cout << "C: " << points[2].x << ", " << points[2].y << ", " << points[2].z << std::endl;
-		//glm::vec4 plane = GetPlaneUp(points[0], points[1], points[2]);
-		//glm::vec4 planeGLM = GetPlaneUpGLM(points[0], points[1], points[2]);
 		return GetPlaneUpGLM(nearestPoints[0], nearestPoints[1], nearestPoints[2]);
 	}
 
