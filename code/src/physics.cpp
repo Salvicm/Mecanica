@@ -274,39 +274,41 @@ public:
 #endif
 		for (int i = 0; i < RESOLUTION; i++)
 		{
-
-			glm::vec3 tmpVec = glm::vec3(0.0f, 0.0f, 0.0f);
-			float tmpY = originalPositions[i].y;
-			for (int j = 0; j < waves.size(); j++) // J = onda actual
-			{
-
-				//std::cout << randomFactor << std::endl;
-
-				// std::cout << waveLength * amplitudes[j] << std::endl; // Si la onda hace cosas raras es qüe la amplitüd es demasiado o el waveVec tambien, testear aquí
-				float tmpSin = glm::dot(waves[j].vector, originalPositions[i]) - (waves[j].frequency * totalTime) + waves[j].phase;
-				tmpVec += ((waves[j].vector / glm::length(waves[j].length)) * waves[j].amplitude * glm::sin(tmpSin));
-
-				float tmpCos = glm::dot(waves[j].vector, originalPositions[i]) - (waves[j].frequency * totalTime) + waves[j].phase;
-				tmpY += (waves[j].amplitude * glm::cos(tmpCos));
-			}
-			tmpVec = originalPositions[i] - tmpVec;
-			glm::vec3 newPos = { tmpVec.x, tmpY, tmpVec.z };
-#if PERLIN
-			if (rand.influence.x > 0) {
-				newPos.x += rand.GetValue(newPos, rand.influence.x);
-			}
-			if (rand.influence.y > 0) {
-				newPos.y += rand.GetValue(newPos, rand.influence.y);
-			}
-			if (rand.influence.z > 0) {
-				newPos.z += rand.GetValue(newPos, rand.influence.z);
-			}
-#endif
-			positions[i] = newPos;
+			positions[i] = GetPoint(originalPositions[i]);
 		}
 
 
 		ClothMesh::updateClothMesh(&positions[0].x);
+	}
+	const glm::vec3 GetPoint(glm::vec3 position) {
+		glm::vec3 tmpVec = glm::vec3(0.0f, 0.0f, 0.0f);
+		float tmpY = position.y;
+		for (int j = 0; j < waves.size(); j++) // J = onda actual
+		{
+
+			//std::cout << randomFactor << std::endl;
+
+			// std::cout << waveLength * amplitudes[j] << std::endl; // Si la onda hace cosas raras es qüe la amplitüd es demasiado o el waveVec tambien, testear aquí
+			float tmpSin = glm::dot(waves[j].vector, position) - (waves[j].frequency * totalTime) + waves[j].phase;
+			tmpVec += ((waves[j].vector / glm::length(waves[j].length)) * waves[j].amplitude * glm::sin(tmpSin));
+
+			float tmpCos = glm::dot(waves[j].vector, position) - (waves[j].frequency * totalTime) + waves[j].phase;
+			tmpY += (waves[j].amplitude * glm::cos(tmpCos));
+		}
+		tmpVec = position - tmpVec;
+		glm::vec3 newPos = { tmpVec.x, tmpY, tmpVec.z };
+#if PERLIN
+		if (rand.influence.x > 0) {
+			newPos.x += rand.GetValue(newPos, rand.influence.x);
+		}
+		if (rand.influence.y > 0) {
+			newPos.y += rand.GetValue(newPos, rand.influence.y);
+		}
+		if (rand.influence.z > 0) {
+			newPos.z += rand.GetValue(newPos, rand.influence.z);
+		}
+#endif
+		return newPos;
 	}
 	void Cleanup()
 	{
@@ -331,12 +333,14 @@ class Ball {
 	glm::vec3 linearMomentum = { 0.0f,0.0f,0.0f };
 	glm::vec3 force = { 0,0,0 };
 	float nextTime = 0;
+	glm::vec3 nearestPoints[3];
+	glm::vec3 belowPoint;
 public:
 	bool simulate = true;
-	bool simulateDirection = false;
 	float radius = 1;
 	float mass = 1;
 	float resetTime = 15.f;
+	float drag = 0;
 	void Init() {
 		extern bool renderSphere;
 		renderSphere = true;
@@ -357,38 +361,40 @@ public:
 		position.z += ((static_cast <float> (rand()) * 2 / static_cast <float> (RAND_MAX)) - 1) * 2.5f;
 		nextTime = totalTime + resetTime;
 	}
-	void Update(float dt, const Fluid& fluid) {
+	void Update(float dt, Fluid& fluid) {
 		if (nextTime < totalTime) {
 			Spawn();
 		}
 		force = { 0,0,0 };
-		CalculateDisplacement(getNearestPlane(fluid), fluid.density);
+		belowPoint = fluid.GetPoint({ position.x, fluid.PARTICLE_START_POSITION.y , position.z });
+		CalculateDisplacement({0,1,0, belowPoint.y}, fluid.density);
 		SemiImplicitEuler(dt);
 		Sphere::updateSphere(position, radius);
 	}
 
+
+
 	glm::vec4 getNearestPlane(const Fluid& fluid) {
-		glm::vec3 points[3];
-		points[0] = points[1] = points[2] = fluid.positions[0];
+		nearestPoints[0] = nearestPoints[1] = nearestPoints[2] = fluid.positions[0];
 		glm::vec3 pos = position;
 		//pos -= glm::vec3(0, 1, 0) * radius;
 		pos.y = 0;
 		for (size_t i = 1; i < fluid.RESOLUTION; i++)
 		{
-			if (glm::distance(fluid.positions[i], glm::vec3(pos.x, fluid.positions[i].y, pos.z)) < glm::distance(points[0], glm::vec3(pos.x, points[0].y, pos.z))) {
-				points[2] = points[1];
-				points[1] = points[0];
-				points[0] = fluid.positions[i];
+			if (glm::distance(fluid.positions[i], glm::vec3(pos.x, fluid.positions[i].y, pos.z)) < glm::distance(nearestPoints[0], glm::vec3(pos.x, nearestPoints[0].y, pos.z))) {
+				nearestPoints[2] = nearestPoints[1];
+				nearestPoints[1] = nearestPoints[0];
+				nearestPoints[0] = fluid.positions[i];
 			}
 		}
-		LilSpheres::updateParticles(0, 3, &points[0].x);
+		LilSpheres::updateParticles(0, 3, &nearestPoints[0].x);
 		//std::cout << "P: " << position.x << ", " << position.y << ", " << position.z << std::endl;
 		//std::cout << "A: " << points[0].x << ", " << points[0].y << ", " << points[0].z << std::endl;
 		//std::cout << "B: " << points[1].x << ", " << points[1].y << ", " << points[1].z << std::endl;
 		//std::cout << "C: " << points[2].x << ", " << points[2].y << ", " << points[2].z << std::endl;
 		//glm::vec4 plane = GetPlaneUp(points[0], points[1], points[2]);
 		//glm::vec4 planeGLM = GetPlaneUpGLM(points[0], points[1], points[2]);
-		return GetPlaneUpGLM(points[0], points[1], points[2]);
+		return GetPlaneUpGLM(nearestPoints[0], nearestPoints[1], nearestPoints[2]);
 	}
 
 	void CalculateDisplacement(const glm::vec4& plane, float fluidDensity) {
@@ -400,26 +406,25 @@ public:
 			float volumeDisplaced = 0;
 			if (sliceValue > radius) {
 				planeNormal = { 0,1,0 };
-				volumeDisplaced = (4 / 3) * glm::pi<float>() * radius * radius * radius;
+				volumeDisplaced = (4.f / 3.f) * glm::pi<float>() * radius * radius * radius;
 			}
 			else if (sliceValue > 0) {
 				sliceValue = fmod(sliceValue, radius);
-				float notDisplaced = (glm::pi<float>() * sliceValue * sliceValue) / 3;
-				notDisplaced *= ((3 * radius) - sliceValue);
-				float sphereVolume = (4 / 3) * glm::pi<float>() * radius * radius * radius;
+				float notDisplaced = (glm::pi<float>() * sliceValue * sliceValue) / 3.f;
+				notDisplaced *= ((3.f * radius) - sliceValue);
+				float sphereVolume = (4.f / 3.f) * glm::pi<float>() * radius * radius * radius;
 				volumeDisplaced = sphereVolume - notDisplaced;
 			}
 			else {
-				volumeDisplaced = (glm::pi<float>() * sliceValue * sliceValue) / 3;
-				volumeDisplaced *= ((3 * radius) - sliceValue);
+				volumeDisplaced = (glm::pi<float>() * sliceValue * sliceValue) / 3.f;
+				volumeDisplaced *= ((3.f * radius) - sliceValue);
 			}
-			if (!simulateDirection) {
-				planeNormal = { 0,-1,0 };
-				force += fluidDensity * volumeDisplaced * acceleration * planeNormal;
+			planeNormal = { 0,-1,0 };
+			glm::vec3 newForce = (fluidDensity * volumeDisplaced * acceleration * planeNormal);
+			if (linearMomentum.y < 0) {
+				linearMomentum.y *= (1 - drag * 0.1f);
 			}
-			else {
-				force += fluidDensity * volumeDisplaced * planeNormal * glm::length(acceleration);
-			}
+			force += newForce;
 		}
 	}
 
@@ -452,7 +457,7 @@ void GUI() {
 		if (ball.simulate) {
 			ImGui::DragFloat("Radius", &ball.radius, .01f);
 			ImGui::DragFloat("Mass", &ball.mass, .01f);
-			ImGui::Checkbox("Emulate direction", &ball.simulateDirection);
+			ImGui::SliderFloat("Drag", &ball.drag, 0, 1);
 			if (ImGui::Button("Reset")) {
 				ball.Spawn();
 			}
